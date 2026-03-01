@@ -16,6 +16,7 @@ setup(
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf')),
         (os.path.join('share', package_name, 'maps'), glob('maps/*.yaml')),
         (os.path.join('share', package_name, 'maps'), glob('maps/*.pgm')),
+        (os.path.join('share', package_name, 'maps'), glob('maps/*.png')),
 
         (os.path.join('share', package_name, 'launch'),
          glob('launch/*.py')),
