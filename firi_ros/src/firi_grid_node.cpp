@@ -75,9 +75,11 @@ public:
         poly_pub_ = this->create_publisher<firi_msgs::msg::Polytope2DStamped>(
             "/firi/polytope", 10);
 
-        // Visualization for RViz2 (line strip showing polytope boundary)
         viz_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
-            "/firi/polytope_viz", 10);
+            "/firi/polytope_mesh", 10);
+
+        bound_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+            "/firi/polytope_bound", 10);
 
         // ── Subscriptions ──
         // Odometry: default QoS is fine (the sim publishes at default QoS)
@@ -419,39 +421,142 @@ private:
         poly_pub_->publish(msg);
     }
 
+// ================================================================
+    // PUBLISH VISUALIZATION MARKERS
     // ================================================================
-    // PUBLISH VISUALIZATION MARKER
-    // ================================================================
-    // Computes the polytope boundary as a set of vertices by intersecting
-    // adjacent halfplanes, then publishes a LINE_STRIP marker for RViz2.
+    // Two markers:
+    //   1. TRIANGLE_LIST: filled semi-transparent polygon (like decomp_rviz mesh)
+    //   2. LINE_STRIP: boundary outline (like decomp_rviz bound)
     //
-    // This replaces the decomp_rviz_utils plugin from ROS1.
+    // The mesh gives the "free space overlay" effect on top of the
+    // occupancy grid. The boundary gives a crisp edge.
     void publish_visualization(const std::vector<firi::HalfPlane>& planes)
     {
         if (planes.size() < 3) return;
 
         // ── Compute polytope vertices by halfplane intersection ──
-        // For each pair of adjacent halfplanes (i, j), solve:
-        //   n_i^T x = b_i
-        //   n_j^T x = b_j
-        // Keep only vertices that satisfy ALL halfplanes (convex hull).
+        auto vertices = compute_polytope_vertices(planes);
+        if (vertices.size() < 3) return;
+
+        const auto stamp = this->now();
+
+        // ── Marker 1: Filled mesh (TRIANGLE_LIST) ──
+        visualization_msgs::msg::Marker mesh;
+        mesh.header.stamp = stamp;
+        mesh.header.frame_id = frame_id_;
+        mesh.ns = "firi_mesh";
+        mesh.id = 0;
+        mesh.type = visualization_msgs::msg::Marker::TRIANGLE_LIST;
+        mesh.action = visualization_msgs::msg::Marker::ADD;
+
+        // TRIANGLE_LIST ignores scale.x for line width;
+        // scale.x/y/z are multiplied into vertex positions, so set to 1.
+        mesh.scale.x = 1.0;
+        mesh.scale.y = 1.0;
+        mesh.scale.z = 1.0;
+
+        // Semi-transparent blue, matching decomp_rviz default
+        mesh.color.r = 0.0f;
+        mesh.color.g = 0.67f;
+        mesh.color.b = 1.0f;
+        mesh.color.a = 0.3f;
+
+        mesh.pose.orientation.w = 1.0;
+
+        // Fan triangulation from centroid.
+        // For a convex polygon with vertices v0..vN-1 (sorted by angle),
+        // we create triangles: (centroid, v_i, v_{i+1}) for each edge.
+        // Using the centroid avoids issues with non-convex fan artifacts
+        // that can happen when fanning from a vertex.
+        Eigen::Vector2d centroid = Eigen::Vector2d::Zero();
+        for (const auto& v : vertices) centroid += v;
+        centroid /= static_cast<double>(vertices.size());
+
+        const float mesh_z = 0.02f;  // slightly above ground
+
+        for (size_t i = 0; i < vertices.size(); ++i) {
+            size_t j = (i + 1) % vertices.size();
+
+            // Triangle: centroid, v_i, v_j
+            geometry_msgs::msg::Point p0, p1, p2;
+            p0.x = centroid.x();
+            p0.y = centroid.y();
+            p0.z = mesh_z;
+
+            p1.x = vertices[i].x();
+            p1.y = vertices[i].y();
+            p1.z = mesh_z;
+
+            p2.x = vertices[j].x();
+            p2.y = vertices[j].y();
+            p2.z = mesh_z;
+
+            mesh.points.push_back(p0);
+            mesh.points.push_back(p1);
+            mesh.points.push_back(p2);
+        }
+
+        viz_pub_->publish(mesh);
+
+        // ── Marker 2: Boundary outline (LINE_STRIP) ──
+        visualization_msgs::msg::Marker bound;
+        bound.header.stamp = stamp;
+        bound.header.frame_id = frame_id_;
+        bound.ns = "firi_bound";
+        bound.id = 0;
+        bound.type = visualization_msgs::msg::Marker::LINE_STRIP;
+        bound.action = visualization_msgs::msg::Marker::ADD;
+
+        bound.scale.x = 0.02;  // thin line
+
+        // Red boundary, matching decomp_rviz default
+        bound.color.r = 1.0f;
+        bound.color.g = 0.0f;
+        bound.color.b = 0.0f;
+        bound.color.a = 1.0f;
+
+        bound.pose.orientation.w = 1.0;
+
+        const float bound_z = 0.03f;  // slightly above the mesh
+
+        for (const auto& v : vertices) {
+            geometry_msgs::msg::Point p;
+            p.x = v.x();
+            p.y = v.y();
+            p.z = bound_z;
+            bound.points.push_back(p);
+        }
+        // Close the loop
+        if (!vertices.empty()) {
+            geometry_msgs::msg::Point p;
+            p.x = vertices.front().x();
+            p.y = vertices.front().y();
+            p.z = bound_z;
+            bound.points.push_back(p);
+        }
+
+        bound_pub_->publish(bound);
+    }
+
+    // ── Helper: compute sorted convex vertices from halfplanes ──
+    std::vector<Eigen::Vector2d> compute_polytope_vertices(
+        const std::vector<firi::HalfPlane>& planes)
+    {
         std::vector<Eigen::Vector2d> vertices;
         const int n = static_cast<int>(planes.size());
 
         for (int i = 0; i < n; ++i) {
             for (int j = i + 1; j < n; ++j) {
-                // Solve 2x2 system: [n_i; n_j] * x = [b_i; b_j]
                 Eigen::Matrix2d M;
                 M.row(0) = planes[i].normal.transpose();
                 M.row(1) = planes[j].normal.transpose();
 
                 const double det = M.determinant();
-                if (std::abs(det) < 1e-10) continue;  // parallel planes
+                if (std::abs(det) < 1e-10) continue;
 
                 Eigen::Vector2d rhs(planes[i].offset, planes[j].offset);
                 Eigen::Vector2d vertex = M.inverse() * rhs;
 
-                // Check if vertex satisfies all halfplanes
                 bool inside = true;
                 for (int k = 0; k < n; ++k) {
                     if (planes[k].normal.dot(vertex) > planes[k].offset + 1e-6) {
@@ -465,9 +570,9 @@ private:
             }
         }
 
-        if (vertices.size() < 3) return;
+        if (vertices.size() < 3) return vertices;
 
-        // ── Sort vertices by angle around centroid (convex hull ordering) ──
+        // Sort by angle around centroid
         Eigen::Vector2d centroid = Eigen::Vector2d::Zero();
         for (const auto& v : vertices) centroid += v;
         centroid /= static_cast<double>(vertices.size());
@@ -478,43 +583,7 @@ private:
                      < std::atan2(b.y() - centroid.y(), b.x() - centroid.x());
             });
 
-        // ── Build LINE_STRIP marker ──
-        visualization_msgs::msg::Marker marker;
-        marker.header.stamp = this->now();
-        marker.header.frame_id = frame_id_;
-        marker.ns = "firi_polytope";
-        marker.id = 0;
-        marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-
-        marker.scale.x = 0.03;  // line width in meters
-
-        // Green with some transparency
-        marker.color.r = 0.2f;
-        marker.color.g = 0.9f;
-        marker.color.b = 0.2f;
-        marker.color.a = 0.8f;
-
-        marker.pose.orientation.w = 1.0;
-
-        // Add vertices + close the loop
-        for (const auto& v : vertices) {
-            geometry_msgs::msg::Point p;
-            p.x = v.x();
-            p.y = v.y();
-            p.z = 0.05;  // slightly above ground for visibility
-            marker.points.push_back(p);
-        }
-        // Close the polygon
-        if (!vertices.empty()) {
-            geometry_msgs::msg::Point p;
-            p.x = vertices.front().x();
-            p.y = vertices.front().y();
-            p.z = 0.05;
-            marker.points.push_back(p);
-        }
-
-        viz_pub_->publish(marker);
+        return vertices;
     }
 
     // ================================================================
@@ -528,6 +597,7 @@ private:
     // Publishers
     rclcpp::Publisher<firi_msgs::msg::Polytope2DStamped>::SharedPtr poly_pub_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr viz_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bound_pub_;
 
     // Timer
     rclcpp::TimerBase::SharedPtr timer_;
