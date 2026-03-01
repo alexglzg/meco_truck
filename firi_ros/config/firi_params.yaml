@@ -1,0 +1,28 @@
+firi_grid_node:
+  ros__parameters:
+    # ── Robot footprint ──
+    # From URDF: 0.555 x 0.35 m body, rear axle at base_link
+    # Body center is 0.1975 m ahead of rear axle
+    robot_length: 0.555
+    robot_width: 0.35
+    footprint_offset_x: 0.1975
+
+    # ── FIRI solver ──
+    max_firi_iter: 10
+    convergence_rho: 0.02
+    voxel_size: 0.05
+
+    # ── Heading-aligned bounding box ──
+    # Search region around robot. Larger = more obstacles to process.
+    # These are distances from the rear axle, not the body center.
+    bbox_ahead: 3.0
+    bbox_behind: 1.0
+    bbox_side: 1.0
+
+    # ── Grid processing ──
+    occupancy_threshold: 50
+    use_boundary_extraction: true
+
+    # ── Topic remapping ──
+    map_topic: "/map"
+    odom_topic: "/odom"
