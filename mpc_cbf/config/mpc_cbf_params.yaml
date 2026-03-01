@@ -1,0 +1,34 @@
+mpc_cbf_node:
+  ros__parameters:
+    # ── Vehicle ──
+    L0: 0.42                      # wheelbase (m)
+    robot_length: 0.555           # footprint length (m)
+    robot_width: 0.35             # footprint width (m)
+    footprint_offset_x: 0.1975   # body center ahead of rear axle (m)
+    max_velocity: 0.5             # m/s
+    max_steering_deg: 50.0        # degrees
+
+    # ── Horizon ──
+    horizon: 15
+    dt: 0.1
+    N_cbf: 6                     # CBF constraint steps (< horizon)
+    rate: 10.0                   # control loop frequency (Hz)
+
+    # ── CBF ──
+    gamma: 0.8                   # CBF decrease rate (0 = aggressive, 1 = conservative)
+    max_approx: 0.005            # LSE smooth approximation bound (m)
+    max_halfplanes: 20           # fixed-size polytope parameterization
+
+    # ── Cost weights ──
+    Q_x: 10.0                   # position tracking
+    Q_y: 10.0
+    Q_theta: 0.0                # heading tracking (0 = free heading)
+    R_v: 0.1                    # velocity effort
+    R_delta: 0.01               # steering effort
+    R_smooth_v: 0.05            # velocity smoothing (penalize changes)
+    R_smooth_delta: 0.05        # steering smoothing
+
+    # ── Path following ──
+    lookahead_dist: 0.5          # m ahead on path
+    goal_tolerance: 0.15         # m, when to consider goal reached
+    path_timeout: 5.0            # s, discard stale paths
