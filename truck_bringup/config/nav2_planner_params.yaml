@@ -2,13 +2,9 @@
 # Nav2 Planner Server + Global Costmap for the truck AMR
 #
 # Philosophy: NavFn produces a FAST, APPROXIMATE, UNSAFE global path.
-# The robot is treated as a point mass with inflation = half the truck
-# width. This gives roughly centered paths through corridors without
-# being overly conservative. ALL safety guarantees come from the
-# MPC-CBF controller, not from the planner.
-#
-# The planner_server in nav2 Foxy embeds its own global_costmap.
-# No separate costmap node is needed.
+# TRUE point mass — robot_radius ≈ 0. No corridors are blocked.
+# Soft inflation gradient steers paths away from walls but never
+# makes any free cell lethal. ALL safety comes from MPC-CBF.
 # =============================================================================
 
 planner_server:
@@ -18,44 +14,42 @@ planner_server:
 
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.25           # goal tolerance (m) — coarse, MPC handles fine approach
-      use_astar: true           # A* is faster than Dijkstra for single goals
-      allow_unknown: false      # don't plan through unknown cells
+      tolerance: 0.25
+      use_astar: true
+      allow_unknown: false
 
-    # ── Global Costmap (embedded in planner_server) ──
-    global_costmap:
-      ros__parameters:
-        update_frequency: 1.0
-        publish_frequency: 0.5
-        global_frame: map
-        robot_base_frame: base_link
-        use_sim_time: false
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 0.5
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: false
 
-        resolution: 0.05          # match the static map resolution
+      resolution: 0.05
 
-        # Point mass: just a circle with radius = half the truck width
-        # truck_width = 0.35m → robot_radius = 0.175m
-        robot_radius: 0.175
+      # True point mass: near-zero radius
+      # Can't be exactly 0.0 (nav2 uses it for inscribed check)
+      robot_radius: 0.01
 
-        rolling_window: false     # full static map, not a rolling window
-        track_unknown_space: false
+      rolling_window: false
+      track_unknown_space: false
 
-        plugins: ["static_layer", "inflation_layer"]
+      plugins: ["static_layer", "inflation_layer"]
 
-        static_layer:
-          plugin: "nav2_costmap_2d::StaticLayer"
-          map_subscribe_transient_local: true
-          enabled: true
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        enabled: true
 
-        inflation_layer:
-          plugin: "nav2_costmap_2d::InflationLayer"
-          enabled: true
-          # Inflation = robot_radius only (0.175m)
-          # This marks cells within half-width as lethal/inscribed,
-          # so A* paths are at least half-width away from walls.
-          # The MPC-CBF handles the rest of the clearance.
-          inflation_radius: 0.2
-          # High cost_scaling = costs drop off FAST from obstacles.
-          # We want this: the path should be roughly feasible,
-          # not perfectly centered. MPC-CBF does the fine work.
-          cost_scaling_factor: 10.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        # Soft cost gradient: half truck width
+        # This doesn't block anything — just adds cost near walls
+        # so A* prefers centered paths when possible.
+        inflation_radius: 0.175
+        # High scaling = costs drop off fast from obstacles.
+        # Path is roughly centered but won't detour for clearance.
+        cost_scaling_factor: 10.0

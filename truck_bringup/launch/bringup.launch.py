@@ -2,14 +2,14 @@
 Full system bringup for the truck AMR with MPC-CBF + FIRI + Nav2 planner.
 
 Launches:
-  1. Map server (nav2_map_server) + lifecycle manager
-  2. Truck simulator (bicycle model)
+  1. Map server + lifecycle manager
+  2. Truck simulator
   3. Robot state publisher (URDF → TF)
   4. FIRI node (polytope generation)
   5. MPC-CBF node (controller)
   6. Nav2 planner server (NavFn A*) + lifecycle manager
-     (planner_server embeds its own global_costmap — no separate node)
-  7. RViz2 (with pre-configured displays)
+  7. Goal-to-plan bridge (RViz2 goal → NavFn action → /plan)
+  8. RViz2
 
 Usage:
   ros2 launch truck_bringup bringup.launch.py
@@ -100,7 +100,7 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_description}])
 
     # ================================================================
-    # 4. FIRI NODE (polytope generation)
+    # 4. FIRI NODE
     # ================================================================
     firi_node = Node(
         package='firi_ros',
@@ -110,7 +110,7 @@ def generate_launch_description():
         parameters=[firi_params])
 
     # ================================================================
-    # 5. MPC-CBF NODE (controller)
+    # 5. MPC-CBF NODE
     # ================================================================
     mpc_node = Node(
         package='mpc_cbf',
@@ -121,8 +121,6 @@ def generate_launch_description():
 
     # ================================================================
     # 6. NAV2 PLANNER SERVER (NavFn A*)
-    #    The planner_server embeds its own global_costmap.
-    #    No separate costmap node needed.
     # ================================================================
     planner_server = Node(
         package='nav2_planner',
@@ -142,7 +140,17 @@ def generate_launch_description():
             {'node_names': ['planner_server']}])
 
     # ================================================================
-    # 7. RVIZ2
+    # 7. GOAL-TO-PLAN BRIDGE
+    #    Subscribes /goal_pose → calls NavFn action → publishes /plan
+    # ================================================================
+    bridge_node = Node(
+        package='mpc_cbf',
+        executable='goal_to_plan_bridge',
+        name='goal_to_plan_bridge',
+        output='screen')
+
+    # ================================================================
+    # 8. RVIZ2
     # ================================================================
     rviz = Node(
         package='rviz2',
@@ -173,6 +181,7 @@ def generate_launch_description():
         # Planning
         planner_server,
         planner_lifecycle,
+        bridge_node,
 
         # Visualization
         # rviz,

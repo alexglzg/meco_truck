@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'mpc_cbf_node = mpc_cbf.mpc_cbf_node:main',
+            'goal_to_plan_bridge = mpc_cbf.goal_to_plan_bridge:main',
         ],
     },
 )
