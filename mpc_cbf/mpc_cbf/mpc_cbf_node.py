@@ -332,33 +332,46 @@ class MPCCBFNode(Node):
 
             # ── CBF constraint (at this stage) ──
             if k < self.N_cbf:
-                # Slacks at X[k]
+                # CBF constraint per point-halfplane pair
                 verts_k = self._robot_vertices_ca(xk[0], xk[1], xk[2])
-                slacks_k = []
-                for j in range(4):
-                    for i in range(self.max_halfplanes):
-                        slacks_k.append(
-                            self.p_b[i] - (self.p_A[i, 0] * verts_k[j, 0]
-                                         + self.p_A[i, 1] * verts_k[j, 1]))
-
-                h_k = smooth_min_inline(ca.vertcat(*slacks_k), alpha_val)
-
-                # Slacks at model prediction (depends on xk, uk only)
                 verts_k1 = self._robot_vertices_ca(
                     x_next_model[0], x_next_model[1], x_next_model[2])
-                slacks_k1 = []
                 for j in range(4):
                     for i in range(self.max_halfplanes):
-                        slacks_k1.append(
-                            self.p_b[i] - (self.p_A[i, 0] * verts_k1[j, 0]
-                                         + self.p_A[i, 1] * verts_k1[j, 1]))
+                        dist_xk = self.p_b[i] - (self.p_A[i, 0] * verts_k[j, 0]
+                                         + self.p_A[i, 1] * verts_k[j, 1])
+                        dist_xk1 = self.p_b[i] - (self.p_A[i, 0] * verts_k1[j, 0]
+                                         + self.p_A[i, 1] * verts_k1[j, 1])
+                        self.opti.subject_to(dist_xk1 >= self.gamma * dist_xk)
 
-                h_k1 = smooth_min_inline(ca.vertcat(*slacks_k1), alpha_val)
+                # # LSE-based CBF constraint
+                # # Slacks at X[k]
+                # verts_k = self._robot_vertices_ca(xk[0], xk[1], xk[2])
+                # slacks_k = []
+                # for j in range(4):
+                #     for i in range(self.max_halfplanes):
+                #         slacks_k.append(
+                #             self.p_b[i] - (self.p_A[i, 0] * verts_k[j, 0]
+                #                          + self.p_A[i, 1] * verts_k[j, 1]))
 
-                # CBF decrease condition
-                self.opti.subject_to(
-                    h_k1 >= self.gamma * h_k
-                           + (1 - self.gamma) * self.max_approx)
+                # h_k = smooth_min_inline(ca.vertcat(*slacks_k), alpha_val)
+
+                # # Slacks at model prediction (depends on xk, uk only)
+                # verts_k1 = self._robot_vertices_ca(
+                #     x_next_model[0], x_next_model[1], x_next_model[2])
+                # slacks_k1 = []
+                # for j in range(4):
+                #     for i in range(self.max_halfplanes):
+                #         slacks_k1.append(
+                #             self.p_b[i] - (self.p_A[i, 0] * verts_k1[j, 0]
+                #                          + self.p_A[i, 1] * verts_k1[j, 1]))
+
+                # h_k1 = smooth_min_inline(ca.vertcat(*slacks_k1), alpha_val)
+
+                # # CBF decrease condition
+                # self.opti.subject_to(
+                #     h_k1 >= self.gamma * h_k
+                #            + (1 - self.gamma) * self.max_approx)
 
         # Terminal cost
         err_t = self.X[self.N] - self.p_Ref
