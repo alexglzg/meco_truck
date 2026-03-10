@@ -27,7 +27,7 @@ global_costmap:
       robot_base_frame: base_link
       use_sim_time: false
 
-      resolution: 0.05
+      resolution: 0.01
 
       # True point mass: near-zero radius
       # Can't be exactly 0.0 (nav2 uses it for inscribed check)
@@ -49,7 +49,7 @@ global_costmap:
         # Soft cost gradient: half truck width
         # This doesn't block anything — just adds cost near walls
         # so A* prefers centered paths when possible.
-        inflation_radius: 0.175
+        inflation_radius: 0.20
         # High scaling = costs drop off fast from obstacles.
         # Path is roughly centered but won't detour for clearance.
-        cost_scaling_factor: 10.0
+        cost_scaling_factor: 5.0

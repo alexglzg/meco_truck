@@ -1,0 +1,50 @@
+firi_grid_node:
+  ros__parameters:
+    # ── Robot footprint ──
+    robot_length: 0.555
+    robot_width: 0.35
+    footprint_offset_x: 0.1975
+
+    # ── FIRI solver ──
+    max_firi_iter: 10
+    convergence_rho: 0.02
+    voxel_size: 0.05
+
+    # ── Heading-aligned bounding box ──
+    bbox_ahead: 3.0
+    bbox_behind: 1.0
+    bbox_side: 2.0
+
+    # ── Grid processing ──
+    occupancy_threshold: 50
+    use_boundary_extraction: true
+
+    # ── Path-guided seeding ──
+    # When enabled, the first N poses from the active path (after the
+    # closest point) are added to the FIRI seed. This biases the polytope
+    # toward the travel direction, preventing wrong-corridor expansion
+    # at junctions.
+    #
+    # seed_n_samples: how many path poses to add to the seed.
+    #   These are the first N poses after the closest point,
+    #   NOT evenly spaced along a lookahead distance.
+    #   More samples = stronger directional bias, but more SDMN
+    #   constraints per obstacle (n_seed goes from 4 to 4+N).
+    #
+    # seed_lookahead: max distance from robot to closest path point.
+    #   If the closest point on the path is further than this, the
+    #   path is considered stale/irrelevant and is not used.
+    #   Set this to roughly the MPC horizon length (N * dt * v_max).
+    #
+    # seed_path_timeout: max age of path message (seconds).
+    #   Paths older than this are ignored.
+    #
+    # Priority: MPC trajectory > global plan > footprint only
+    seed_use_path: true
+    seed_n_samples: 4
+    seed_lookahead: 1.5
+    seed_path_timeout: 5.0
+
+    # ── Topics ──
+    map_topic: "/map"
+    state_topic: "/truck/state"

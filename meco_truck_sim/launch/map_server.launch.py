@@ -13,8 +13,10 @@ def generate_launch_description():
     # 2. Declare the argument (defaulting to the filename only)
     map_file_arg = DeclareLaunchArgument(
         'map_file',
-        default_value='intersection_roundabout.yaml',
+        # default_value='intersection_roundabout.yaml',
+        # default_value='intersection.yaml',
         # default_value='t_junction.yaml',
+        default_value='parking_two.yaml',
         description='Name of the map file to load'
     )
 

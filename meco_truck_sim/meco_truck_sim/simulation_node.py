@@ -101,6 +101,10 @@ class TruckSimulator(Node):
 
         self.state[2] = yaw  # theta0 (truck heading)
 
+        # Set control inputs to zero when setting initial pose
+        self.V0 = 0.0
+        self.delta0 = 0.0
+
         self.get_logger().warn(
             f'Initial pose set to x: {self.state[0]:.2f}, y: {self.state[1]:.2f}, theta: {yaw:.2f} rad'
         )

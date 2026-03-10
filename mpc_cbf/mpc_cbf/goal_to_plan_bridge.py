@@ -4,15 +4,17 @@ Goal-to-Plan Bridge Node (ROS2 Foxy)
 
 Bridges RViz2's "2D Nav Goal" and nav2's planner server.
 
-Three jobs:
-  1. Broadcasts map→base_link TF from /truck/state so NavFn can
+Jobs:
+  1. Broadcasts map->base_link TF from /truck/state so NavFn can
      find the robot's start pose (and the costmap stops complaining).
   2. On /goal_pose, calls ComputePathToPose action on the planner server.
-  3. Publishes the result on /plan for the MPC-CBF node.
+  3. Replans at a fixed frequency (like move_base's planner_frequency).
+  4. Publishes the result on /plan for the MPC-CBF and FIRI nodes.
+  5. Stops replanning when the robot reaches the goal.
 
 Foxy-specific:
   - ComputePathToPose.Goal uses 'pose' (not 'goal')
-  - No 'start' or 'use_start' fields — NavFn always uses TF for start
+  - No 'start' or 'use_start' fields -- NavFn always uses TF for start
 """
 
 import math
@@ -30,13 +32,26 @@ class GoalToPlanBridge(Node):
     def __init__(self):
         super().__init__('goal_to_plan_bridge')
 
+        # -- Parameters --
+        self.declare_parameter('replan_frequency', 1.0)    # Hz, 0 = plan once
+        self.declare_parameter('goal_tolerance', 0.15)     # meters
+        self.declare_parameter('planner_id', 'GridBased')
+
+        self.replan_freq = self.get_parameter('replan_frequency').value
+        self.goal_tol = self.get_parameter('goal_tolerance').value
+        self.planner_id = self.get_parameter('planner_id').value
+
         # Robot state
         self.robot_x = 0.0
         self.robot_y = 0.0
         self.robot_theta = 0.0
         self.state_received = False
 
-        # TF broadcaster (map → base_link)
+        # Active goal (None = no goal)
+        self.active_goal = None          # PoseStamped
+        self.planning_in_progress = False
+
+        # TF broadcaster (map -> base_link)
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Publisher for the computed path
@@ -56,9 +71,23 @@ class GoalToPlanBridge(Node):
         self._action_client = ActionClient(
             self, ComputePathToPose, 'compute_path_to_pose')
 
+        # -- Replan timer --
+        if self.replan_freq > 0.0:
+            period_s = 1.0 / self.replan_freq
+            self.replan_timer = self.create_timer(
+                period_s, self.replan_callback)
+            self.get_logger().info(
+                f"Replanning at {self.replan_freq:.1f} Hz "
+                f"(every {period_s*1000:.0f} ms)")
+        else:
+            self.replan_timer = None
+            self.get_logger().info("Replanning disabled (plan once per goal)")
+
         self.get_logger().info(
-            "Goal-to-Plan bridge ready. "
-            "Click '2D Nav Goal' in RViz2 to trigger NavFn.")
+            f"Goal-to-Plan bridge ready. "
+            f"goal_tolerance={self.goal_tol:.2f} m, "
+            f"planner_id='{self.planner_id}'. "
+            f"Click '2D Nav Goal' in RViz2 to trigger NavFn.")
 
     def state_callback(self, msg):
         """Track robot state and broadcast TF."""
@@ -70,7 +99,7 @@ class GoalToPlanBridge(Node):
         self.robot_theta = msg.data[2]
         self.state_received = True
 
-        # Broadcast map → base_link transform
+        # Broadcast map -> base_link transform
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'map'
@@ -86,31 +115,65 @@ class GoalToPlanBridge(Node):
         self.tf_broadcaster.sendTransform(t)
 
     def goal_callback(self, msg):
-        """Receive goal from RViz2 and request a plan from NavFn."""
+        """Receive goal from RViz2. Stores it and plans immediately."""
 
         self.get_logger().info(
-            f"Goal received: [{msg.pose.position.x:.2f}, "
+            f"New goal: [{msg.pose.position.x:.2f}, "
             f"{msg.pose.position.y:.2f}]")
+
+        self.active_goal = msg
+
+        # Plan immediately (don't wait for next timer tick)
+        self.request_plan()
+
+    def replan_callback(self):
+        """Periodic replanning timer. Fires at replan_frequency."""
+
+        if self.active_goal is None:
+            return
+
+        if not self.state_received:
+            return
+
+        # Check if we've reached the goal
+        dx = self.active_goal.pose.position.x - self.robot_x
+        dy = self.active_goal.pose.position.y - self.robot_y
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        if dist < self.goal_tol:
+            self.get_logger().info(
+                f"Goal reached (d={dist:.3f} m < tol={self.goal_tol:.2f} m). "
+                f"Stopping replanning.")
+            self.active_goal = None
+            return
+
+        # Don't stack requests if one is in flight
+        if self.planning_in_progress:
+            return
+
+        self.request_plan()
+
+    def request_plan(self):
+        """Send a ComputePathToPose request to the planner server."""
 
         if not self.state_received:
             self.get_logger().warn("No robot state yet, can't plan")
             return
 
-        # Wait for action server
-        if not self._action_client.wait_for_server(timeout_sec=2.0):
+        if self.active_goal is None:
+            return
+
+        if not self._action_client.wait_for_server(timeout_sec=0.5):
             self.get_logger().warn(
                 "Planner server not available, is it running?")
             return
 
         # Build the action goal (Foxy field names)
         goal = ComputePathToPose.Goal()
-        goal.pose = msg                    # Foxy: 'pose', not 'goal'
-        goal.planner_id = "GridBased"
-        # Foxy has no 'start' or 'use_start' — NavFn uses TF (our broadcast)
+        goal.pose = self.active_goal         # Foxy: 'pose', not 'goal'
+        goal.planner_id = self.planner_id
 
-        self.get_logger().info(
-            f"Planning from [{self.robot_x:.2f}, {self.robot_y:.2f}] "
-            f"to [{msg.pose.position.x:.2f}, {msg.pose.position.y:.2f}]")
+        self.planning_in_progress = True
 
         # Send goal asynchronously
         future = self._action_client.send_goal_async(goal)
@@ -121,6 +184,7 @@ class GoalToPlanBridge(Node):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().warn("Plan request rejected by planner server")
+            self.planning_in_progress = False
             return
 
         result_future = goal_handle.get_result_async()
@@ -128,6 +192,8 @@ class GoalToPlanBridge(Node):
 
     def _result_callback(self, future):
         """Publish the computed path on /plan."""
+        self.planning_in_progress = False
+
         result = future.result().result
         path = result.path
 

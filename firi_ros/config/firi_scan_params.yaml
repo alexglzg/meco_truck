@@ -1,0 +1,42 @@
+pcl_filter_node:
+  ros__parameters:
+    # ── Point cloud filtering ──
+    voxel_size: 0.1       # downsample resolution (meters)
+    height_min: -0.3      # min height relative to robot (meters)
+    height_max: 1.5       # max height relative to robot (meters)
+    range_min: 0.15       # ignore points closer than this (meters)
+    range_max: 8.0        # ignore points further than this (meters)
+
+    # ── LaserScan projection ──
+    num_beams: 720        # angular bins (720 = 0.5 deg resolution)
+    scan_frame: "base_link"
+
+    # ── Input ──
+    cloud_topic: "/ouster/points"
+
+firi_scan_node:
+  ros__parameters:
+    # ── Robot footprint ──
+    robot_length: 0.555
+    robot_width: 0.35
+    footprint_offset_x: 0.1975
+
+    # ── FIRI solver ──
+    max_firi_iter: 10
+    convergence_rho: 0.02
+    voxel_size: 0.05      # additional 2D downsample on scan points
+
+    # ── Heading-aligned bounding box ──
+    bbox_ahead: 3.0
+    bbox_behind: 1.0
+    bbox_side: 2.0
+
+    # ── Path-guided seeding ──
+    seed_use_path: false
+    seed_n_samples: 4
+    seed_lookahead: 1.5
+    seed_path_timeout: 5.0
+
+    # ── Topics ──
+    scan_topic: "/filtered_scan"
+    state_topic: "/truck/state"

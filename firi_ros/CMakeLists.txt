@@ -25,6 +25,10 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(firi_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common filters)
+find_package(pcl_conversions REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_executable(firi_grid_node src/firi_grid_node.cpp)
 
@@ -47,6 +51,66 @@ ament_target_dependencies(firi_grid_node
 install(TARGETS firi_grid_node
   DESTINATION lib/${PROJECT_NAME}
 )
+
+
+add_executable(firi_path_grid_node src/firi_path_grid_node.cpp)
+
+target_include_directories(firi_path_grid_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(firi_path_grid_node
+  rclcpp
+  nav_msgs
+  std_msgs
+  visualization_msgs
+  tf2
+  tf2_geometry_msgs
+  firi_msgs
+)
+
+install(TARGETS firi_path_grid_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+add_executable(firi_scan_node src/firi_scan_node.cpp)
+target_include_directories(firi_scan_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+ament_target_dependencies(firi_scan_node
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  std_msgs
+  visualization_msgs
+  firi_msgs
+)
+
+add_executable(pcl_filter_node src/pcl_filter_node.cpp)
+target_include_directories(pcl_filter_node PUBLIC
+  ${PCL_INCLUDE_DIRS}
+)
+target_link_libraries(pcl_filter_node
+  ${PCL_LIBRARIES}
+)
+ament_target_dependencies(pcl_filter_node
+  rclcpp
+  sensor_msgs
+  tf2_ros
+  pcl_conversions
+)
+
+install(TARGETS
+  firi_scan_node
+  pcl_filter_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 
 install(DIRECTORY include/
   DESTINATION include
