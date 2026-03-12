@@ -168,13 +168,10 @@ private:
         const float robot_z = tf_base.transform.translation.z;
 
         // Robot yaw from base_link orientation
-        {
-            const auto& r = tf_base.transform.rotation;
-            // yaw from quaternion: atan2(2(wz+xy), 1-2(yy+zz))
-            robot_yaw_ = std::atan2(
-                2.0 * (r.w * r.z + r.x * r.y),
-                1.0 - 2.0 * (r.y * r.y + r.z * r.z));
-        }
+        const auto& r_base = tf_base.transform.rotation;
+        const float robot_yaw = std::atan2(
+            2.0 * (r_base.w * r_base.z + r_base.x * r_base.y),
+            1.0 - 2.0 * (r_base.y * r_base.y + r_base.z * r_base.z));
 
         // ── Convert ROS msg → PCL ──
         pcl::PointCloud<PointT>::Ptr cloud_in(new pcl::PointCloud<PointT>());
