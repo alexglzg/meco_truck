@@ -98,47 +98,83 @@ private:
         // bool need_scan  = (scan_pub_->get_subscription_count() > 0);
         // if (!need_cloud && !need_scan) return;
 
-        // ── Get transform: sensor frame → map ──
-        geometry_msgs::msg::TransformStamped tf_msg;
+        // ── Get transform: sensor frame → map (for cloud transform) ──
+        geometry_msgs::msg::TransformStamped tf_sensor;
         try {
-           tf_msg = tf_buffer_->lookupTransform(
-               "map", msg->header.frame_id,
-               tf2::TimePointZero,  // latest available
-               tf2::durationFromSec(0.1));
+            tf_sensor = tf_buffer_->lookupTransform(
+                "map", msg->header.frame_id,
+                tf2::TimePointZero,
+                tf2::durationFromSec(0.1));
         } catch (tf2::TransformException& ex) {
-            RCLCPP_INFO(this->get_logger(), "tf does not exist");
-        //    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 100,
-        //        "TF lookup failed: %s", ex.what());
-           return;
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "TF map->%s failed: %s", msg->header.frame_id.c_str(), ex.what());
+            return;
         }
 
-        // ── Build Eigen transform ──
+        // ── Get transform: base_link → map (for filtering + scan projection) ──
+        geometry_msgs::msg::TransformStamped tf_base;
+        try {
+            tf_base = tf_buffer_->lookupTransform(
+                "map", "base_link",
+                tf2::TimePointZero,
+                tf2::durationFromSec(0.1));
+        } catch (tf2::TransformException& ex) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "TF map->base_link failed: %s", ex.what());
+            return;
+        }
+
+        // // ── Build Eigen transform ──
+        // Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+        // {
+        //     const auto& t = tf_msg.transform.translation;
+        //     const auto& r = tf_msg.transform.rotation;
+
+        //     Eigen::Quaternionf q(
+        //         static_cast<float>(r.w),
+        //         static_cast<float>(r.x),
+        //         static_cast<float>(r.y),
+        //         static_cast<float>(r.z));
+
+        //     transform.translation() = Eigen::Vector3f(
+        //         static_cast<float>(t.x),
+        //         static_cast<float>(t.y),
+        //         static_cast<float>(t.z));
+        //     transform.linear() = q.toRotationMatrix();
+        // }
+
+        // // Robot position in map frame
+        // const float robot_x = transform.translation().x();
+        // const float robot_y = transform.translation().y();
+        // const float robot_z = transform.translation().z();
+
+        // // Robot yaw in map frame (for LaserScan projection)
+        // Eigen::Matrix3f rot = transform.linear();
+        // const float robot_yaw = std::atan2(rot(1, 0), rot(0, 0));
+
+        // ── Build Eigen transform for cloud (sensor → map) ──
         Eigen::Affine3f transform = Eigen::Affine3f::Identity();
         {
-            const auto& t = tf_msg.transform.translation;
-            const auto& r = tf_msg.transform.rotation;
-
-            Eigen::Quaternionf q(
-                static_cast<float>(r.w),
-                static_cast<float>(r.x),
-                static_cast<float>(r.y),
-                static_cast<float>(r.z));
-
-            transform.translation() = Eigen::Vector3f(
-                static_cast<float>(t.x),
-                static_cast<float>(t.y),
-                static_cast<float>(t.z));
+            const auto& t = tf_sensor.transform.translation;
+            const auto& r = tf_sensor.transform.rotation;
+            Eigen::Quaternionf q(r.w, r.x, r.y, r.z);
+            transform.translation() = Eigen::Vector3f(t.x, t.y, t.z);
             transform.linear() = q.toRotationMatrix();
         }
 
-        // Robot position in map frame
-        const float robot_x = transform.translation().x();
-        const float robot_y = transform.translation().y();
-        const float robot_z = transform.translation().z();
+        // ── Robot (base_link) pose in map frame ──
+        const float robot_x = tf_base.transform.translation.x;
+        const float robot_y = tf_base.transform.translation.y;
+        const float robot_z = tf_base.transform.translation.z;
 
-        // Robot yaw in map frame (for LaserScan projection)
-        Eigen::Matrix3f rot = transform.linear();
-        const float robot_yaw = std::atan2(rot(1, 0), rot(0, 0));
+        // Robot yaw from base_link orientation
+        {
+            const auto& r = tf_base.transform.rotation;
+            // yaw from quaternion: atan2(2(wz+xy), 1-2(yy+zz))
+            robot_yaw_ = std::atan2(
+                2.0 * (r.w * r.z + r.x * r.y),
+                1.0 - 2.0 * (r.y * r.y + r.z * r.z));
+        }
 
         // ── Convert ROS msg → PCL ──
         pcl::PointCloud<PointT>::Ptr cloud_in(new pcl::PointCloud<PointT>());
