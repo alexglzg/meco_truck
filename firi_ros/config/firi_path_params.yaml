@@ -1,9 +1,9 @@
 firi_grid_node:
   ros__parameters:
     # ── Robot footprint ──
-    robot_length: 0.555
+    robot_length: 0.55
     robot_width: 0.35
-    footprint_offset_x: 0.1975
+    footprint_offset_x: 0.215
 
     # ── FIRI solver ──
     max_firi_iter: 10
