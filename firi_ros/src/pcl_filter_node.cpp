@@ -73,7 +73,7 @@ public:
 
         // ── Subscriber ──
         cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            cloud_topic, 10,
+            cloud_topic, rclcpp::SensorDataQoS(),
             std::bind(&PCLFilterNode::cloud_callback, this, std::placeholders::_1));
 
         RCLCPP_INFO(this->get_logger(), "PCL Filter Node started");
@@ -90,22 +90,26 @@ public:
 private:
     void cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
+
+        // RCLCPP_INFO(this->get_logger(),
+        //     "  callback");
         // Check if anyone is listening
-        bool need_cloud = (cloud_pub_->get_subscription_count() > 0);
-        bool need_scan  = (scan_pub_->get_subscription_count() > 0);
-        if (!need_cloud && !need_scan) return;
+        // bool need_cloud = (cloud_pub_->get_subscription_count() > 0);
+        // bool need_scan  = (scan_pub_->get_subscription_count() > 0);
+        // if (!need_cloud && !need_scan) return;
 
         // ── Get transform: sensor frame → map ──
         geometry_msgs::msg::TransformStamped tf_msg;
         try {
-            tf_msg = tf_buffer_->lookupTransform(
-                "map", msg->header.frame_id,
-                tf2::TimePointZero,  // latest available
-                tf2::durationFromSec(0.1));
+           tf_msg = tf_buffer_->lookupTransform(
+               "map", msg->header.frame_id,
+               tf2::TimePointZero,  // latest available
+               tf2::durationFromSec(0.1));
         } catch (tf2::TransformException& ex) {
-            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-                "TF lookup failed: %s", ex.what());
-            return;
+            RCLCPP_INFO(this->get_logger(), "tf does not exist");
+        //    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 100,
+        //        "TF lookup failed: %s", ex.what());
+           return;
         }
 
         // ── Build Eigen transform ──
@@ -183,19 +187,19 @@ private:
             cloud_range->size(), cloud_ds->size());
 
         // ── Publish filtered PointCloud2 ──
-        if (need_cloud) {
+        // if (need_cloud) {
             sensor_msgs::msg::PointCloud2 output;
             pcl::toROSMsg(*cloud_ds, output);
             output.header.stamp = msg->header.stamp;
             output.header.frame_id = "map";
             cloud_pub_->publish(output);
-        }
+        // }
 
         // ── Publish LaserScan ──
-        if (need_scan) {
+        // if (need_scan) {
             publish_laser_scan(cloud_ds, robot_x, robot_y, robot_yaw,
-                               msg->header.stamp);
-        }
+                                msg->header.stamp);
+        // }
     }
 
     // ================================================================
