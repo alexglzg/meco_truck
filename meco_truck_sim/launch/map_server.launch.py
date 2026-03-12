@@ -55,3 +55,6 @@ def generate_launch_description():
         map_server_node,
         lifecycle_manager_node
     ])
+
+
+# ros2 launch meco_truck_sim map_server.launch.py map_file:=intersection_roundabout.yaml
