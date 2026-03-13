@@ -47,19 +47,19 @@ public:
     {
         // ── Parameters ──
         this->declare_parameter<double>("voxel_size", 0.1);
-        this->declare_parameter<double>("height_min", -0.5);
-        this->declare_parameter<double>("height_max", 2.0);
-        this->declare_parameter<double>("range_min", 0.1);
+        this->declare_parameter<double>("height_min", 0.0);
+        this->declare_parameter<double>("height_max", 1.5);
+        this->declare_parameter<double>("range_min", 0.2);
         this->declare_parameter<double>("range_max", 10.0);
         this->declare_parameter<int>("num_beams", 720);
         this->declare_parameter<std::string>("scan_frame", "base_link");
         this->declare_parameter<std::string>("cloud_topic", "/ouster/points");
 
         // Robot footprint exclusion zone
-        this->declare_parameter<double>("robot_length", 0.55);
+        this->declare_parameter<double>("robot_length", 0.60); //0.55
         this->declare_parameter<double>("robot_width", 0.35);
-        this->declare_parameter<double>("footprint_offset_x", 0.215);
-        this->declare_parameter<double>("footprint_margin", 0.00);
+        this->declare_parameter<double>("footprint_offset_x", 0.24); //0.215
+        this->declare_parameter<double>("footprint_margin", 0.05);
 
         voxel_size_ = this->get_parameter("voxel_size").as_double();
         height_min_ = this->get_parameter("height_min").as_double();

@@ -33,7 +33,7 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='tracker_to_robot',
             # arguments: x y z yaw pitch roll frame_id child_frame_id
-            arguments=['0', '0', '0', '0', '0', '0', 'map', 'os_lidar']
+            arguments=['0.155', '0', '0.48', '0', '0', '0', 'base_link', 'os_sensor']
         )
     
     return LaunchDescription([
