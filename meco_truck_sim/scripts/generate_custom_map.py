@@ -434,9 +434,273 @@ def intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radi
     # Save the map and YAML configuration
     save_map_and_yaml(grid, "intersection_roundabout", resolution)
 
+
+def generate_racetrack(track_width_m=0.8, resolution=0.05):
+    """
+    Generates an oval racetrack layout.
+    The track fills most of the 3x6m space.
+    """
+    # Start with a fully occupied map
+    grid = generate_occupied_map(
+        filename_prefix="racetrack",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # Dimensions for the outer boundary (white area)
+    outer_radius = 1.3  # meters
+    inner_radius = outer_radius - track_width_m
+    center_top = (1.5, 4.5)
+    center_bottom = (1.5, 1.5)
+
+    # 1. Create the outer "pill" shape (Free Space)
+    add_circular_free_space(grid, center_top, outer_radius, resolution)
+    add_circular_free_space(grid, center_bottom, outer_radius, resolution)
+    add_rectangular_road(grid, (1.5 - outer_radius, 1.5), (1.5 + outer_radius, 4.5), resolution)
+
+    # 2. Create the inner "infield" (Occupied Space)
+    add_circular_obstacle(grid, center_top, inner_radius, resolution)
+    add_circular_obstacle(grid, center_bottom, inner_radius, resolution)
+    add_rectangular_obstacle(grid, (1.5 - inner_radius, 1.5), (1.5 + inner_radius, 4.5), resolution)
+
+    save_map_and_yaml(grid, "racetrack", resolution)
+
+def generate_slalom(lane_width_m=1.0, resolution=0.05):
+    """
+    Generates a zig-zag slalom path.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="slalom",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # Define path points for a 'Z' or 'S' shape
+    # Bottom horizontal
+    add_rectangular_road(grid, (0.5, 0.5), (2.5, 0.5 + lane_width_m), resolution)
+    # Diagonal/Vertical connector
+    add_rectangular_road(grid, (2.5 - lane_width_m, 0.5), (2.5, 5.5), resolution)
+    # Top horizontal
+    add_rectangular_road(grid, (0.5, 5.5 - lane_width_m), (2.5, 5.5), resolution)
+
+    # Add a few circular "pylons" in the middle of the lanes
+    add_circular_obstacle(grid, (1.5, 3.0), 0.2, resolution)
+
+    save_map_and_yaml(grid, "slalom", resolution)
+
+def generate_figure_8(track_width_m=0.8, resolution=0.05):
+    """
+    Generates a Figure-8 layout.
+    Two loops merge in the center to create a dynamic intersection.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="figure_8",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    outer_radius = 1.3
+    inner_radius = outer_radius - track_width_m
+    
+    # Centers for the top and bottom loops
+    center_top = (1.5, 4.2)
+    center_bottom = (1.5, 1.8)
+
+    # 1. Draw outer boundary (Free Space)
+    # The overlap in the middle creates the crossover junction
+    add_circular_free_space(grid, center_top, outer_radius, resolution)
+    add_circular_free_space(grid, center_bottom, outer_radius, resolution)
+
+    # 2. Draw inner islands (Occupied Space)
+    add_circular_obstacle(grid, center_top, inner_radius, resolution)
+    add_circular_obstacle(grid, center_bottom, inner_radius, resolution)
+
+    save_map_and_yaml(grid, "figure_8", resolution)
+
+def generate_grid_world(lane_width_m=0.7, resolution=0.05):
+    """
+    Generates a Manhattan-style grid with 2 vertical and 3 horizontal lanes.
+    Great for testing global pathfinding algorithms.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="grid_world",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # Two vertical lanes
+    add_rectangular_road(grid, (0.5, 0.0), (0.5 + lane_width_m, 6.0), resolution)
+    add_rectangular_road(grid, (3.0 - 0.5 - lane_width_m, 0.0), (2.5, 6.0), resolution)
+
+    # Three horizontal crossing lanes
+    # Bottom cross
+    add_rectangular_road(grid, (0.0, 1.0), (3.0, 1.0 + lane_width_m), resolution)
+    # Middle cross
+    add_rectangular_road(grid, (0.0, 3.0 - (lane_width_m / 2)), (3.0, 3.0 + (lane_width_m / 2)), resolution)
+    # Top cross
+    add_rectangular_road(grid, (0.0, 5.0 - lane_width_m), (3.0, 5.0), resolution)
+
+    save_map_and_yaml(grid, "grid_world", resolution)
+
+def generate_serpentine(lane_width_m=0.9, resolution=0.05):
+    """
+    Generates a snaking S-curve track with sharp hairpin turns.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="serpentine",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # Segment 1: Enter bottom-left, go up
+    add_rectangular_road(grid, (0.2, 0.0), (0.2 + lane_width_m, 2.0), resolution)
+    
+    # Segment 2: Cross to the right
+    add_rectangular_road(grid, (0.2, 2.0 - lane_width_m), (2.8, 2.0), resolution)
+    
+    # Segment 3: Go up on the right side
+    add_rectangular_road(grid, (2.8 - lane_width_m, 2.0 - lane_width_m), (2.8, 4.0), resolution)
+    
+    # Segment 4: Cross back to the left
+    add_rectangular_road(grid, (0.2, 4.0 - lane_width_m), (2.8, 4.0), resolution)
+    
+    # Segment 5: Exit top-left
+    add_rectangular_road(grid, (0.2, 4.0 - lane_width_m), (0.2 + lane_width_m, 6.0), resolution)
+
+    save_map_and_yaml(grid, "serpentine", resolution)
+
+def add_path_free_space(grid, waypoints_m, width_m, resolution):
+    """
+    Draws a continuous path connecting waypoints.
+    Uses point-to-line-segment distance to create perfectly rounded corners.
+    """
+    height_px, width_px = grid.shape
+    
+    # Create coordinate grids
+    y_indices, x_indices = np.ogrid[:height_px, :width_px]
+    x_m = x_indices * resolution
+    # Map Y from bottom-left (user space) to top-left (image space)
+    y_m = (height_px - 1 - y_indices) * resolution
+    
+    # Initialize with infinite distance
+    min_dist = np.full((height_px, width_px), np.inf)
+    
+    # Calculate shortest distance to any line segment in the path
+    for i in range(len(waypoints_m) - 1):
+        x0, y0 = waypoints_m[i]
+        x1, y1 = waypoints_m[i+1]
+        
+        dx = x1 - x0
+        dy = y1 - y0
+        l2 = dx**2 + dy**2
+        
+        if l2 == 0:
+            dist = np.sqrt((x_m - x0)**2 + (y_m - y0)**2)
+        else:
+            t = ((x_m - x0) * dx + (y_m - y0) * dy) / l2
+            t = np.clip(t, 0.0, 1.0)
+            proj_x = x0 + t * dx
+            proj_y = y0 + t * dy
+            dist = np.sqrt((x_m - proj_x)**2 + (y_m - proj_y)**2)
+            
+        min_dist = np.minimum(min_dist, dist)
+        
+    # Set pixels within the track width to free space (255/White)
+    grid[min_dist <= (width_m / 2.0)] = 255
+    return grid
+
+
+def generate_mini_spa(track_width_m=0.9, resolution=0.05):
+    """
+    Generates a 3x6m approximation of the Spa-Francorchamps circuit.
+    Designed with sweeping curves for Ackermann steering robots.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="mini_spa",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # Waypoints mapping the iconic corners (X, Y in meters)
+    spa_waypoints = [
+        (1.5, 1.0),  # Start/Finish Straight
+        (2.2, 0.6),  # Turn 1: La Source (tight hairpin right)
+        (2.6, 1.0),  # Exiting La Source
+        (2.0, 2.2),  # Plunge down to Eau Rouge
+        (1.4, 2.6),  # Eau Rouge (left flick)
+        (1.0, 3.0),  # Raidillon (right flick and uphill)
+        (0.6, 4.5),  # Kemmel Straight (flat out!)
+        (0.8, 5.4),  # Les Combes entry
+        (1.4, 5.6),  # Les Combes / Malmedy chicane
+        (2.2, 5.4),  # Bruxelles / Pouhon (sweeping double apex)
+        (2.6, 4.8),  # Pouhon exit
+        (2.6, 3.0),  # Blanchimont (fast return straight)
+        (2.2, 1.8),  # Bus Stop chicane entry (hard braking)
+        (1.5, 1.4),  # Bus Stop chicane exit
+        (1.5, 1.0)   # Close the loop at Start/Finish
+    ]
+
+    add_path_free_space(grid, spa_waypoints, track_width_m, resolution)
+    save_map_and_yaml(grid, "mini_spa", resolution)
+
+def generate_irregular_figure_8(track_width_m=0.85, resolution=0.05):
+    """
+    Generates a smooth, asymmetrical figure-8 track.
+    Perfect for Ackermann steering as it features sweeping, non-uniform curves.
+    """
+    grid = generate_occupied_map(
+        filename_prefix="irregular_8",
+        map_width_m=3.0,
+        map_height_m=6.0,
+        resolution=resolution
+    )
+
+    # A series of waypoints creating two asymmetrical lobes.
+    # The vectors through the center (1.5, 3.0) are aligned for a smooth crossover.
+    waypoints = [
+        (1.5, 3.0),  # Center crossover (start)
+        
+        # --- Top Lobe (Taller, leans slightly left at the peak) ---
+        (2.1, 3.6),  # Exit center going up-right
+        (2.5, 4.5),  # Sweep wide right
+        (2.0, 5.5),  # Tighten toward the top
+        (1.0, 5.5),  # Flat top section
+        (0.5, 4.5),  # Drop down the left side
+        (0.9, 3.6),  # Approach center going down-right
+        
+        (1.5, 3.0),  # Center crossover
+        
+        # --- Bottom Lobe (Shorter, wider, tighter bottom corners) ---
+        (2.1, 2.4),  # Exit center going down-right
+        (2.6, 1.5),  # Sweep wide right
+        (2.2, 0.5),  # Tight bottom right corner
+        (1.2, 0.4),  # Flat bottom section
+        (0.4, 1.2),  # Tight bottom left corner
+        (0.9, 2.4),  # Approach center going up-right
+        
+        (1.5, 3.0)   # Close the loop at center
+    ]
+
+    # Requires the add_path_free_space function from the previous step!
+    add_path_free_space(grid, waypoints, track_width_m, resolution)
+    save_map_and_yaml(grid, "irregular_8", resolution)
+
 if __name__ == "__main__":
     resolution = 0.05
-    parking_one(parking_width_m=0.7, resolution=resolution)
-    parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution)
-    intersection(road_width_m=0.8, resolution=resolution)
-    intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.6, resolution=resolution)
+    # parking_one(parking_width_m=0.7, resolution=resolution)
+    # parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution)
+    # intersection(road_width_m=0.8, resolution=resolution)
+    # intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.6, resolution=resolution)
+    # generate_racetrack(track_width_m=0.8, resolution=resolution)
+    # generate_slalom(lane_width_m=1.0, resolution=resolution)
+    # generate_figure_8(track_width_m=0.8, resolution=resolution)
+    # generate_grid_world(lane_width_m=0.7, resolution=resolution)
+    # generate_serpentine(lane_width_m=0.9, resolution=resolution)
+    # generate_mini_spa(track_width_m=0.9, resolution=resolution)
+    generate_irregular_figure_8(track_width_m=0.85, resolution=resolution)
