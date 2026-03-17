@@ -38,6 +38,7 @@ setup(
     entry_points={
         'console_scripts': [
             'simulation_node = meco_truck_sim.simulation_node:main',
+            'estimator_node = meco_truck_sim.estimator_node:main'
         ],
     },
 )

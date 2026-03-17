@@ -48,9 +48,9 @@ class MPCCBFNode(Node):
         # =================================================================
         # Vehicle
         self.declare_parameter('L0', 0.42)
-        self.declare_parameter('robot_length', 0.555)
+        self.declare_parameter('robot_length', 0.55)
         self.declare_parameter('robot_width', 0.35)
-        self.declare_parameter('footprint_offset_x', 0.1975)
+        self.declare_parameter('footprint_offset_x', 0.215)
         self.declare_parameter('max_velocity', 0.5)
         self.declare_parameter('max_steering_deg', 50.0)
 

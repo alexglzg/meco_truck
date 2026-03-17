@@ -2,9 +2,9 @@ mpc_cbf_node:
   ros__parameters:
     # ── Vehicle ──
     L0: 0.42                      # wheelbase (m)
-    robot_length: 0.555           # footprint length (m)
+    robot_length: 0.55           # footprint length (m)
     robot_width: 0.35             # footprint width (m)
-    footprint_offset_x: 0.1975   # body center ahead of rear axle (m)
+    footprint_offset_x: 0.215   # body center ahead of rear axle (m)
     max_velocity: 0.5             # m/s
     max_steering_deg: 60.0        # degrees
 
