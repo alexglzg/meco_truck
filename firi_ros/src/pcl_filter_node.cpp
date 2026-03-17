@@ -15,6 +15,7 @@
 //   2. Range (relative to base_link xy)
 //   3. Footprint exclusion (rectangular zone in body frame)
 //   4. Voxel downsample
+//   5. Radius outlier removal (removes sparse noise / multipath ghosts)
 //
 // No pcl_ros dependency — transforms are done via tf2 + Eigen.
 // ============================================================================
@@ -29,6 +30,7 @@
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/common/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -61,6 +63,10 @@ public:
         this->declare_parameter<double>("footprint_offset_x", 0.215);
         this->declare_parameter<double>("footprint_margin", 0.00);
 
+        // Radius outlier removal
+        this->declare_parameter<double>("outlier_radius", 0.2);
+        this->declare_parameter<int>("outlier_min_neighbors", 2);
+
         voxel_size_ = this->get_parameter("voxel_size").as_double();
         height_min_ = this->get_parameter("height_min").as_double();
         height_max_ = this->get_parameter("height_max").as_double();
@@ -72,6 +78,8 @@ public:
         robot_width_         = this->get_parameter("robot_width").as_double();
         footprint_offset_x_  = this->get_parameter("footprint_offset_x").as_double();
         footprint_margin_    = this->get_parameter("footprint_margin").as_double();
+        outlier_radius_      = this->get_parameter("outlier_radius").as_double();
+        outlier_min_neighbors_ = this->get_parameter("outlier_min_neighbors").as_int();
 
         std::string cloud_topic = this->get_parameter("cloud_topic").as_string();
 
@@ -102,6 +110,9 @@ public:
             num_beams_, scan_frame_.c_str());
         RCLCPP_INFO(this->get_logger(),
             "  Cloud topic: '%s'", cloud_topic.c_str());
+        RCLCPP_INFO(this->get_logger(),
+            "  Outlier removal: radius %.3f m, min_neighbors %d",
+            outlier_radius_, outlier_min_neighbors_);
     }
 
 private:
@@ -224,20 +235,28 @@ private:
         voxel.setLeafSize(voxel_size_, voxel_size_, voxel_size_);
         voxel.filter(*cloud_ds);
 
+        // ── Radius outlier removal (remove sparse noise / multipath ghosts) ──
+        pcl::PointCloud<PointT>::Ptr cloud_clean(new pcl::PointCloud<PointT>());
+        pcl::RadiusOutlierRemoval<PointT> ror;
+        ror.setInputCloud(cloud_ds);
+        ror.setRadiusSearch(outlier_radius_);
+        ror.setMinNeighborsInRadius(outlier_min_neighbors_);
+        ror.filter(*cloud_clean);
+
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-            "Cloud: %zu raw -> %zu height -> %zu range+footprint -> %zu voxel",
+            "Cloud: %zu raw -> %zu height -> %zu range+footprint -> %zu voxel -> %zu outlier",
             cloud_in->size(), cloud_height->size(),
-            cloud_filtered->size(), cloud_ds->size());
+            cloud_filtered->size(), cloud_ds->size(), cloud_clean->size());
 
         // ── Publish filtered PointCloud2 ──
         sensor_msgs::msg::PointCloud2 output;
-        pcl::toROSMsg(*cloud_ds, output);
+        pcl::toROSMsg(*cloud_clean, output);
         output.header.stamp = msg->header.stamp;
         output.header.frame_id = "map";
         cloud_pub_->publish(output);
 
         // ── Publish LaserScan ──
-        publish_laser_scan(cloud_ds, robot_x, robot_y, robot_yaw,
+        publish_laser_scan(cloud_clean, robot_x, robot_y, robot_yaw,
                            msg->header.stamp);
     }
 
@@ -311,6 +330,8 @@ private:
     double robot_width_;
     double footprint_offset_x_;
     double footprint_margin_;
+    double outlier_radius_;
+    int outlier_min_neighbors_;
 };
 
 
