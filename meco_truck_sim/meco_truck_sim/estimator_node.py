@@ -15,7 +15,7 @@ class TruckEstimator(Node):
 
         self.state_pub = self.create_publisher(Float64MultiArray, '/truck/state', 10)
         
-        self.tf_broadcaster = TransformBroadcaster(self)
+        #self.tf_broadcaster = TransformBroadcaster(self)
 
         self.x = 0.0
         self.y = 0.0

@@ -99,20 +99,20 @@ class GoalToPlanBridge(Node):
         self.robot_theta = msg.data[2]
         self.state_received = True
 
-        # Broadcast map -> base_link transform
-        t = TransformStamped()
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'map'
-        t.child_frame_id = 'base_link'
-        t.transform.translation.x = self.robot_x
-        t.transform.translation.y = self.robot_y
-        t.transform.translation.z = 0.0
-        t.transform.rotation.z = math.sin(self.robot_theta / 2.0)
-        t.transform.rotation.w = math.cos(self.robot_theta / 2.0)
-        t.transform.rotation.x = 0.0
-        t.transform.rotation.y = 0.0
+        # # Broadcast map -> base_link transform
+        # t = TransformStamped()
+        # t.header.stamp = self.get_clock().now().to_msg()
+        # t.header.frame_id = 'map'
+        # t.child_frame_id = 'base_link'
+        # t.transform.translation.x = self.robot_x
+        # t.transform.translation.y = self.robot_y
+        # t.transform.translation.z = 0.0
+        # t.transform.rotation.z = math.sin(self.robot_theta / 2.0)
+        # t.transform.rotation.w = math.cos(self.robot_theta / 2.0)
+        # t.transform.rotation.x = 0.0
+        # t.transform.rotation.y = 0.0
 
-        self.tf_broadcaster.sendTransform(t)
+        # self.tf_broadcaster.sendTransform(t)
 
     def goal_callback(self, msg):
         """Receive goal from RViz2. Stores it and plans immediately."""

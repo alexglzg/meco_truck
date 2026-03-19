@@ -65,7 +65,7 @@ public:
 
         // Radius outlier removal
         this->declare_parameter<double>("outlier_radius", 0.2);
-        this->declare_parameter<int>("outlier_min_neighbors", 2);
+        this->declare_parameter<int>("outlier_min_neighbors", 4);
 
         voxel_size_ = this->get_parameter("voxel_size").as_double();
         height_min_ = this->get_parameter("height_min").as_double();
