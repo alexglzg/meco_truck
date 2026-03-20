@@ -52,29 +52,6 @@ install(TARGETS firi_grid_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-
-add_executable(firi_path_grid_node src/firi_path_grid_node.cpp)
-
-target_include_directories(firi_path_grid_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${EIGEN3_INCLUDE_DIRS}
-)
-
-ament_target_dependencies(firi_path_grid_node
-  rclcpp
-  nav_msgs
-  std_msgs
-  visualization_msgs
-  tf2
-  tf2_geometry_msgs
-  firi_msgs
-)
-
-install(TARGETS firi_path_grid_node
-  DESTINATION lib/${PROJECT_NAME}
-)
-
 add_executable(firi_scan_node src/firi_scan_node.cpp)
 target_include_directories(firi_scan_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

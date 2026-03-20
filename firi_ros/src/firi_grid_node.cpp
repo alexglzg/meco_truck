@@ -28,6 +28,14 @@
 #include <vector>
 #include <cmath>
 #include <chrono>
+#include <unordered_set>
+
+// Hash for Eigen::Vector2i (used by corner-point deduplication)
+struct Vector2iHash {
+    size_t operator()(const Eigen::Vector2i& k) const {
+        return std::hash<int>()(k.x()) ^ (std::hash<int>()(k.y()) << 1);
+    }
+};
 
 class FIRIGridNode : public rclcpp::Node
 {
@@ -41,9 +49,9 @@ public:
         // current value (which may have been overridden by a YAML file
         // or launch argument).
 
-        this->declare_parameter<double>("robot_length", 0.555);
+        this->declare_parameter<double>("robot_length", 0.65);
         this->declare_parameter<double>("robot_width", 0.35);
-        this->declare_parameter<double>("footprint_offset_x", 0.1975);
+        this->declare_parameter<double>("footprint_offset_x", 0.265);
         this->declare_parameter<double>("voxel_size", 0.05);
         this->declare_parameter<int>("max_firi_iter", 10);
         this->declare_parameter<double>("convergence_rho", 0.02);
@@ -134,6 +142,7 @@ private:
     void grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     {
         frame_id_ = msg->header.frame_id;
+        grid_resolution_ = msg->info.resolution;
         auto t_start = std::chrono::high_resolution_clock::now();
 
         if (use_boundary_extraction_) {
@@ -148,7 +157,7 @@ private:
         double ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
         RCLCPP_INFO(this->get_logger(),
-            "Grid %dx%d (%.3fm) -> %zu boundary obstacles in %.1f ms",
+            "Grid %dx%d (%.3fm) -> %zu boundary corner points in %.1f ms",
             msg->info.width, msg->info.height, msg->info.resolution,
             all_boundary_obs_.size(), ms);
     }
@@ -203,7 +212,14 @@ private:
         }
 
         // 2. Optional voxel downsampling
-        local_obs = firi::voxel_filter(local_obs, voxel_size_);
+        //    With corner-point boundary extraction, points are already
+        //    deduplicated on the grid-vertex lattice.  Applying a voxel
+        //    filter with bin size > grid_resolution would merge distinct
+        //    corners and reintroduce the safety gap.  So: skip the filter
+        //    when using boundary extraction; apply only in fallback mode.
+        if (!use_boundary_extraction_) {
+            local_obs = firi::voxel_filter(local_obs, voxel_size_);
+        }
 
         // 3. Build robot footprint seed (rectangle around body center)
         //
@@ -282,11 +298,21 @@ private:
     }
 
     // ================================================================
-    // BOUNDARY EXTRACTION
+    // BOUNDARY EXTRACTION  (corner-point variant)
     // ================================================================
-    // Only extract occupied cells adjacent to at least one free cell
-    // (4-connected). A solid wall produces ~2 rows of points instead
-    // of the full wall depth. Typically 3-10x reduction.
+    // Safety issue with cell-center representation:
+    //   Each occupied cell is a res×res square, but a single center
+    //   point lets FIRI's halfplane cut up to res√2/2 into the cell.
+    //
+    // Fix: emit the 4 corner vertices of every boundary cell instead
+    // of the center.  Adjacent cells share corners, so we deduplicate
+    // via an integer-grid hash set.  Along a connected boundary of N
+    // cells the unique corner count is ~2N, not 4N.
+    //
+    // Corner indexing:  cell (col,row) has corners at grid vertices
+    //   (col, row), (col+1, row), (col, row+1), (col+1, row+1)
+    // which map to metric coordinates (col*res, row*res), etc.
+    // (no +0.5 offset — these are actual cell edges, not centers).
     void extract_boundary_obstacles(const nav_msgs::msg::OccupancyGrid::SharedPtr& msg)
     {
         all_boundary_obs_.clear();
@@ -310,7 +336,10 @@ private:
         const int dx[] = {1, -1, 0, 0};
         const int dy[] = {0, 0, 1, -1};
 
-        all_boundary_obs_.reserve(w * h / 10);
+        // Deduplicate corners via integer grid-vertex indices.
+        // Corner vertices live on a (w+1)×(h+1) grid.
+        std::unordered_set<Eigen::Vector2i, Vector2iHash> corner_set;
+        corner_set.reserve(w * h / 4);  // rough estimate
 
         for (int row = 0; row < h; ++row) {
             for (int col = 0; col < w; ++col) {
@@ -340,14 +369,22 @@ private:
 
                 if (!is_boundary) continue;
 
-                // Grid cell center -> world coordinates
-                const double x_grid = (col + 0.5) * res;
-                const double y_grid = (row + 0.5) * res;
-                const double x = ox + x_grid * cos_yaw - y_grid * sin_yaw;
-                const double y = oy + x_grid * sin_yaw + y_grid * cos_yaw;
-
-                all_boundary_obs_.emplace_back(x, y);
+                // Insert the 4 corner vertices of this cell
+                corner_set.insert(Eigen::Vector2i(col,     row    ));
+                corner_set.insert(Eigen::Vector2i(col + 1, row    ));
+                corner_set.insert(Eigen::Vector2i(col,     row + 1));
+                corner_set.insert(Eigen::Vector2i(col + 1, row + 1));
             }
+        }
+
+        // Convert unique corner vertices to world coordinates
+        all_boundary_obs_.reserve(corner_set.size());
+        for (const auto& cv : corner_set) {
+            const double x_grid = cv.x() * res;
+            const double y_grid = cv.y() * res;
+            const double x = ox + x_grid * cos_yaw - y_grid * sin_yaw;
+            const double y = oy + x_grid * sin_yaw + y_grid * cos_yaw;
+            all_boundary_obs_.emplace_back(x, y);
         }
     }
 
@@ -619,9 +656,10 @@ private:
     bool odom_received_ = false;
 
     // Cached obstacle data
-    std::vector<Eigen::Vector2d> all_boundary_obs_;
+    std::vector<Eigen::Vector2d> all_boundary_obs_;  // boundary corner points
     bool grid_cached_ = false;
     std::string frame_id_ = "map";
+    double grid_resolution_ = 0.05;  // updated from received grid
 
     // Parameters
     double robot_length_;

@@ -271,7 +271,7 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     # add long boundary line
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(2.8, 0.1),
+        bottom_left_m=(2.85, 0.1),
         top_right_m=(2.9, 5.9),
         resolution=resolution
     )
@@ -279,14 +279,14 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     # add short boundary lines
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.1, 5.8),
-        top_right_m=(2.8, 5.9),
+        bottom_left_m=(1.1, 5.85),
+        top_right_m=(2.85, 5.9),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(1.1, 0.1),
-        top_right_m=(2.8, 0.2),
+        top_right_m=(2.85, 0.15),
         resolution=resolution
     )
 
@@ -294,13 +294,13 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(1.1, 6.0 - parking_start),
-        top_right_m=(1.2, 5.9),
+        top_right_m=(1.15, 5.9),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(1.1, 0.1),
-        top_right_m=(1.2, 6.0 - parking_end),
+        top_right_m=(1.15, 6.0 - parking_end),
         resolution=resolution
     )
 
@@ -308,19 +308,19 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(0.1, 6.0 - parking_start),
-        top_right_m=(1.1, 6.1 - parking_start),
+        top_right_m=(1.1, 6.05 - parking_start),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(0.1, 5.9 - parking_end),
+        bottom_left_m=(0.1, 5.95 - parking_end),
         top_right_m=(1.1, 6.0 - parking_end),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(0.1, 5.9 - parking_end),
-        top_right_m=(0.2, 6.1 - parking_start),
+        bottom_left_m=(0.1, 5.95 - parking_end),
+        top_right_m=(0.15, 6.05 - parking_start),
         resolution=resolution
     )
 
@@ -694,7 +694,7 @@ def generate_irregular_figure_8(track_width_m=0.85, resolution=0.05):
 if __name__ == "__main__":
     resolution = 0.05
     # parking_one(parking_width_m=0.7, resolution=resolution)
-    # parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution)
+    parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution)
     # intersection(road_width_m=0.8, resolution=resolution)
     # intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.6, resolution=resolution)
     # generate_racetrack(track_width_m=0.8, resolution=resolution)
@@ -703,4 +703,4 @@ if __name__ == "__main__":
     # generate_grid_world(lane_width_m=0.7, resolution=resolution)
     # generate_serpentine(lane_width_m=0.9, resolution=resolution)
     # generate_mini_spa(track_width_m=0.9, resolution=resolution)
-    generate_irregular_figure_8(track_width_m=0.85, resolution=resolution)
+    # generate_irregular_figure_8(track_width_m=0.85, resolution=resolution)
