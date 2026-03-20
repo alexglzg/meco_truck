@@ -49,7 +49,7 @@ public:
     {
         // ── Parameters ──
         this->declare_parameter<double>("voxel_size", 0.1);
-        this->declare_parameter<double>("height_min", 0.0);
+        this->declare_parameter<double>("height_min", 0.3);
         this->declare_parameter<double>("height_max", 1.5);
         this->declare_parameter<double>("range_min", 0.2);
         this->declare_parameter<double>("range_max", 10.0);
@@ -58,9 +58,9 @@ public:
         this->declare_parameter<std::string>("cloud_topic", "/ouster/points");
 
         // Robot footprint exclusion zone
-        this->declare_parameter<double>("robot_length", 0.60); //0.55
+        this->declare_parameter<double>("robot_length", 0.65); //0.55
         this->declare_parameter<double>("robot_width", 0.35);
-        this->declare_parameter<double>("footprint_offset_x", 0.24); //0.215
+        this->declare_parameter<double>("footprint_offset_x", 0.265); //0.215
         this->declare_parameter<double>("footprint_margin", 0.05);
 
         // Radius outlier removal

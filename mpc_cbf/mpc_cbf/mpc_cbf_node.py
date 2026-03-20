@@ -117,6 +117,8 @@ class MPCCBFNode(Node):
         # State dimensions
         self.nx = 3   # [x, y, theta]
         self.nu = 2   # [v, delta]
+        
+        self.safe_marg = 0.03
 
         # =================================================================
         # State variables
@@ -347,9 +349,9 @@ class MPCCBFNode(Node):
                 for j in range(4):
                     for i in range(self.max_halfplanes):
                         dist_xk = self.p_b[i] - (self.p_A[i, 0] * verts_k[j, 0]
-                                         + self.p_A[i, 1] * verts_k[j, 1])
+                                         + self.p_A[i, 1] * verts_k[j, 1]) + self.safe_marg
                         dist_xk1 = self.p_b[i] - (self.p_A[i, 0] * verts_k1[j, 0]
-                                         + self.p_A[i, 1] * verts_k1[j, 1])
+                                         + self.p_A[i, 1] * verts_k1[j, 1]) + self.safe_marg
                         self.opti.subject_to(dist_xk1 >= self.gamma * dist_xk)
 
                 # # LSE-based CBF constraint

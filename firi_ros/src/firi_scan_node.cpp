@@ -39,9 +39,9 @@ public:
         // ── Parameters ──
 
         // Robot footprint
-        this->declare_parameter<double>("robot_length", 0.55);
+        this->declare_parameter<double>("robot_length", 0.65);
         this->declare_parameter<double>("robot_width", 0.35);
-        this->declare_parameter<double>("footprint_offset_x", 0.215);
+        this->declare_parameter<double>("footprint_offset_x", 0.265);
 
         // FIRI solver
         this->declare_parameter<double>("voxel_size", 0.05);

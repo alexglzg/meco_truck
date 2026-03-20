@@ -2,10 +2,10 @@ mpc_cbf_node:
   ros__parameters:
     # ── Vehicle ──
     L0: 0.42                      # wheelbase (m)
-    robot_length: 0.55           # footprint length (m)
+    robot_length: 0.65           # footprint length (m)
     robot_width: 0.35             # footprint width (m)
-    footprint_offset_x: 0.215   # body center ahead of rear axle (m)
-    max_velocity: 0.5             # m/s
+    footprint_offset_x: 0.265   # body center ahead of rear axle (m)
+    max_velocity: 0.3             # m/s
     max_steering_deg: 60.0        # degrees
 
     # ── Horizon ──
@@ -20,12 +20,12 @@ mpc_cbf_node:
     max_halfplanes: 20           # fixed-size polytope parameterization
 
     # ── Cost weights ──
-    Q_x: 5.0                   # position tracking
-    Q_y: 5.0
+    Q_x: 2.0                   # position tracking
+    Q_y: 2.0
     Q_theta: 0.0                # heading tracking (0 = free heading)
     R_v: 0.5                    # velocity effort
     R_delta: 0.01               # steering effort
-    R_smooth_v: 0.1            # velocity smoothing (penalize changes)
+    R_smooth_v: 0.2            # velocity smoothing (penalize changes)
     R_smooth_delta: 0.2        # steering smoothing
 
     # ── Path following ──
