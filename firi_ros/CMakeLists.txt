@@ -67,6 +67,21 @@ ament_target_dependencies(firi_scan_node
   firi_msgs
 )
 
+add_executable(firi_scan_experiment_node src/firi_scan_experiment_node.cpp)
+target_include_directories(firi_scan_experiment_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+ament_target_dependencies(firi_scan_experiment_node
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  std_msgs
+  visualization_msgs
+  firi_msgs
+)
+
 add_executable(pcl_filter_node src/pcl_filter_node.cpp)
 target_include_directories(pcl_filter_node PUBLIC
   ${PCL_INCLUDE_DIRS}
@@ -84,6 +99,7 @@ ament_target_dependencies(pcl_filter_node
 install(TARGETS
   firi_scan_node
   pcl_filter_node
+  firi_scan_experiment_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -2,22 +2,23 @@ mpc_cbf_node:
   ros__parameters:
     # ── Vehicle ──
     L0: 0.42                      # wheelbase (m)
-    robot_length: 0.65           # footprint length (m)
+    robot_length: 0.55           # footprint length (m)
     robot_width: 0.35             # footprint width (m)
-    footprint_offset_x: 0.265   # body center ahead of rear axle (m)
+    footprint_offset_x: 0.215   # body center ahead of rear axle (m)
     max_velocity: 0.3             # m/s
-    max_steering_deg: 60.0        # degrees
+    max_steering_deg: 80.0        # degrees
 
     # ── Horizon ──
-    horizon: 15
+    horizon: 20
     dt: 0.1
-    N_cbf: 13                     # CBF constraint steps (< horizon)
+    N_cbf: 18                     # CBF constraint steps (< horizon)
     rate: 10.0                   # control loop frequency (Hz)
 
     # ── CBF ──
     gamma: 0.8                   # CBF decrease rate (0 = aggressive, 1 = conservative)
     max_approx: 0.005            # LSE smooth approximation bound (m)
     max_halfplanes: 20           # fixed-size polytope parameterization
+    safe_marg: 0.025              # safety margin added to CBF constraints (m)
 
     # ── Cost weights ──
     Q_x: 2.0                   # position tracking

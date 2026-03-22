@@ -235,8 +235,8 @@ private:
         //      half-length = 0.2775 m
         //      half-width  = 0.175 m
 
-        const double hl = robot_length_ / 2.0;
-        const double hw = robot_width_ / 2.0;
+        const double hl = robot_length_ / 2.0 + 0.025;  // add small safety margin to length
+        const double hw = robot_width_ / 2.0 + 0.025;   // add small safety margin to width
         const double cos_yaw = std::cos(robot_yaw_);
         const double sin_yaw = std::sin(robot_yaw_);
 

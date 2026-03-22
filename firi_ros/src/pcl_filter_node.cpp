@@ -61,7 +61,7 @@ public:
         this->declare_parameter<double>("robot_length", 0.65); //0.55
         this->declare_parameter<double>("robot_width", 0.35);
         this->declare_parameter<double>("footprint_offset_x", 0.265); //0.215
-        this->declare_parameter<double>("footprint_margin", 0.05);
+        this->declare_parameter<double>("footprint_margin", 0.025);
 
         // Radius outlier removal
         this->declare_parameter<double>("outlier_radius", 0.2);

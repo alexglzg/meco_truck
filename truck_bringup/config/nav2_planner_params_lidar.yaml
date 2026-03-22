@@ -1,0 +1,70 @@
+# =============================================================================
+# Nav2 Planner Server + Global Costmap — Ouster lidar version
+#
+# Static layer:  four_wall map (space boundaries)
+# Obstacle layer: /filtered_scan from pcl_filter_node (dynamic obstacles)
+# Inflation layer: soft gradient for path centering
+#
+# Safety comes from MPC-CBF, so robot_radius ≈ 0.
+# =============================================================================
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 5.0
+    planner_plugins: ["GridBased"]
+
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.25
+      use_astar: true
+      allow_unknown: false
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 2.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: false
+
+      resolution: 0.02
+
+      # Point-mass: MPC-CBF handles safety
+      robot_radius: 0.01
+
+      rolling_window: false
+      track_unknown_space: false
+
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+      # ── Static layer: four walls ──
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        enabled: true
+
+      # ── Obstacle layer: live lidar ──
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: filtered_scan
+        filtered_scan:
+          topic: /filtered_scan
+          data_type: LaserScan
+          marking: true
+          clearing: true
+          obstacle_max_range: 4.0
+          obstacle_min_range: 0.15
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.0
+          # Accept scans even if TF timestamp is slightly off
+          observation_persistence: 0.0
+          inf_is_valid: true
+
+      # ── Inflation: soft gradient for path preference ──
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.20
+        cost_scaling_factor: 5.0

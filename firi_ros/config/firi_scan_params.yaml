@@ -17,9 +17,9 @@ pcl_filter_node:
 firi_scan_node:
   ros__parameters:
     # ── Robot footprint ──
-    robot_length: 0.55
+    robot_length: 0.65
     robot_width: 0.35
-    footprint_offset_x: 0.215
+    footprint_offset_x: 0.265
 
     # ── FIRI solver ──
     max_firi_iter: 10

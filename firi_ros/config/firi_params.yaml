@@ -1,8 +1,8 @@
 firi_grid_node:
   ros__parameters:
     # ── Robot footprint ──
-    # From URDF: 0.555 x 0.35 m body, rear axle at base_link
-    # Body center is 0.1975 m ahead of rear axle
+    # From URDF: 0.55 x 0.35 m body, rear axle at base_link
+    # Body center is 0.215 m ahead of rear axle
     robot_length: 0.55
     robot_width: 0.35
     footprint_offset_x: 0.215
@@ -15,7 +15,7 @@ firi_grid_node:
     # ── Heading-aligned bounding box ──
     # Search region around robot. Larger = more obstacles to process.
     # These are distances from the rear axle, not the body center.
-    bbox_ahead: 3.0
+    bbox_ahead: 2.0
     bbox_behind: 1.0
     bbox_side: 1.0
 

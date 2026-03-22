@@ -1,0 +1,8 @@
+mpc_cbf_node:
+  ros__parameters:
+    # ── Scan-mode overrides ──
+    # These three values replace the grid-mode defaults in mpc_cbf_params.yaml.
+    # All other parameters are inherited from that base file.
+    robot_length: 0.65         # includes sensor overhang (m)  ← adjust as needed
+    footprint_offset_x: 0.265  # adjusted for sensor offset (m) ← adjust as needed
+    safe_marg: 0.03            # larger margin for real-world sensor clearance (m) ← adjust as needed

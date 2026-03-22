@@ -1,13 +1,22 @@
 // ============================================================================
-// firi_scan_node.cpp — FIRI for 2D with LaserScan input (ROS2 Foxy)
+// firi_scan_experiment_node.cpp — FIRI for 2D LaserScan + virtual walls
 //
-// Event-driven: each LaserScan triggers a FIRI solve.
-// Converts scan rays to 2D obstacle points in map frame,
-// builds footprint seed + optional path-guided seed, runs FIRI,
-// publishes polytope + visualization.
+// Extends firi_scan_node with parameterized virtual boundary injection.
+// Designed for lab experiments where the operating area has no physical
+// walls (e.g. 3x6m arena with projected map and Vive tracking).
 //
-// Port of firi_node_sdmn.cpp (ROS1) with path-guided seeding.
-// Shares solver headers with firi_grid_node.
+// Virtual wall points are injected into the obstacle set BEFORE the
+// voxel filter and FIRI solve, so the polytope naturally stops at the
+// boundary. The /filtered_scan topic is NOT modified — the costmap
+// gets its walls from the static layer in the map.
+//
+// New parameters (all in meters, map frame):
+//   virtual_walls.enabled    — enable/disable wall injection
+//   virtual_walls.x_min/max  — left/right boundary
+//   virtual_walls.y_min/max  — bottom/top boundary
+//   virtual_walls.spacing    — distance between sampled wall points
+//
+// Everything else is identical to firi_scan_node.
 // ============================================================================
 
 #include <rclcpp/rclcpp.hpp>
@@ -31,10 +40,10 @@
 #include <algorithm>
 
 
-class FIRIScanNode : public rclcpp::Node
+class FIRIScanExperimentNode : public rclcpp::Node
 {
 public:
-    FIRIScanNode() : Node("firi_scan_node")
+    FIRIScanExperimentNode() : Node("firi_scan_experiment_node")
     {
         // ── Parameters ──
 
@@ -63,6 +72,14 @@ public:
         this->declare_parameter<std::string>("scan_topic", "/filtered_scan");
         this->declare_parameter<std::string>("state_topic", "/truck/state");
 
+        // Virtual walls (lab arena boundaries in map frame)
+        this->declare_parameter<bool>("virtual_walls.enabled", true);
+        this->declare_parameter<double>("virtual_walls.x_min", -0.9);
+        this->declare_parameter<double>("virtual_walls.x_max", 1.9);
+        this->declare_parameter<double>("virtual_walls.y_min", -0.9);
+        this->declare_parameter<double>("virtual_walls.y_max", 4.9);
+        this->declare_parameter<double>("virtual_walls.spacing", 0.05);
+
         robot_length_        = this->get_parameter("robot_length").as_double();
         robot_width_         = this->get_parameter("robot_width").as_double();
         footprint_offset_x_  = this->get_parameter("footprint_offset_x").as_double();
@@ -80,6 +97,18 @@ public:
         std::string scan_topic  = this->get_parameter("scan_topic").as_string();
         std::string state_topic = this->get_parameter("state_topic").as_string();
 
+        vw_enabled_ = this->get_parameter("virtual_walls.enabled").as_bool();
+        vw_x_min_   = this->get_parameter("virtual_walls.x_min").as_double();
+        vw_x_max_   = this->get_parameter("virtual_walls.x_max").as_double();
+        vw_y_min_   = this->get_parameter("virtual_walls.y_min").as_double();
+        vw_y_max_   = this->get_parameter("virtual_walls.y_max").as_double();
+        vw_spacing_ = this->get_parameter("virtual_walls.spacing").as_double();
+
+        // Pre-generate the static wall point set (never changes at runtime)
+        if (vw_enabled_) {
+            generate_wall_points();
+        }
+
         // ── Publishers ──
         poly_pub_ = this->create_publisher<firi_msgs::msg::Polytope2DStamped>(
             "/firi/polytope", 10);
@@ -93,23 +122,23 @@ public:
         // ── Subscriptions ──
         state_sub_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
             state_topic, 10,
-            std::bind(&FIRIScanNode::state_callback, this, std::placeholders::_1));
+            std::bind(&FIRIScanExperimentNode::state_callback, this, std::placeholders::_1));
 
         scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             scan_topic, 10,
-            std::bind(&FIRIScanNode::scan_callback, this, std::placeholders::_1));
+            std::bind(&FIRIScanExperimentNode::scan_callback, this, std::placeholders::_1));
 
         plan_sub_ = this->create_subscription<nav_msgs::msg::Path>(
             "/plan", 10,
-            std::bind(&FIRIScanNode::plan_callback, this, std::placeholders::_1));
+            std::bind(&FIRIScanExperimentNode::plan_callback, this, std::placeholders::_1));
 
         mpc_traj_sub_ = this->create_subscription<nav_msgs::msg::Path>(
             "/mpc/trajectory", 10,
-            std::bind(&FIRIScanNode::mpc_traj_callback, this, std::placeholders::_1));
+            std::bind(&FIRIScanExperimentNode::mpc_traj_callback, this, std::placeholders::_1));
 
         // ── Startup logging ──
         RCLCPP_INFO(this->get_logger(),
-            "FIRI Scan Node started (path-guided seeding)");
+            "FIRI Scan Experiment Node started (path-guided seeding + virtual walls)");
         RCLCPP_INFO(this->get_logger(),
             "  Robot: %.3f x %.3f m, offset_x: %.4f m",
             robot_length_, robot_width_, footprint_offset_x_);
@@ -122,9 +151,42 @@ public:
         RCLCPP_INFO(this->get_logger(),
             "  Scan topic: '%s', State topic: '%s'",
             scan_topic.c_str(), state_topic.c_str());
+        if (vw_enabled_) {
+            RCLCPP_INFO(this->get_logger(),
+                "  Virtual walls: x=[%.2f, %.2f], y=[%.2f, %.2f], spacing=%.3f m (%zu points)",
+                vw_x_min_, vw_x_max_, vw_y_min_, vw_y_max_, vw_spacing_,
+                wall_points_.size());
+        } else {
+            RCLCPP_INFO(this->get_logger(), "  Virtual walls: DISABLED");
+        }
     }
 
 private:
+    // ================================================================
+    // VIRTUAL WALL POINT GENERATION
+    // ================================================================
+    void generate_wall_points()
+    {
+        wall_points_.clear();
+
+        // Bottom wall: y = y_min, x from x_min to x_max
+        for (double x = vw_x_min_; x <= vw_x_max_; x += vw_spacing_) {
+            wall_points_.emplace_back(x, vw_y_min_);
+        }
+        // Top wall: y = y_max, x from x_min to x_max
+        for (double x = vw_x_min_; x <= vw_x_max_; x += vw_spacing_) {
+            wall_points_.emplace_back(x, vw_y_max_);
+        }
+        // Left wall: x = x_min, y from y_min to y_max (skip corners)
+        for (double y = vw_y_min_ + vw_spacing_; y < vw_y_max_; y += vw_spacing_) {
+            wall_points_.emplace_back(vw_x_min_, y);
+        }
+        // Right wall: x = x_max, y from y_min to y_max (skip corners)
+        for (double y = vw_y_min_ + vw_spacing_; y < vw_y_max_; y += vw_spacing_) {
+            wall_points_.emplace_back(vw_x_max_, y);
+        }
+    }
+
     // ================================================================
     // CALLBACKS
     // ================================================================
@@ -163,11 +225,9 @@ private:
             return;
         }
 
-        // 1. Convert LaserScan rays to 2D obstacle points in map frame
-        //    The scan is in base_link frame. We transform each ray endpoint
-        //    using the robot pose (from /truck/state).
+        // ── Step 1: Convert LaserScan rays to 2D obstacle points (map frame) ──
         std::vector<Eigen::Vector2d> raw_obs;
-        raw_obs.reserve(msg->ranges.size());
+        raw_obs.reserve(msg->ranges.size() + wall_points_.size());
 
         double angle = msg->angle_min;
         for (size_t i = 0; i < msg->ranges.size(); ++i, angle += msg->angle_increment) {
@@ -182,17 +242,22 @@ private:
                 robot_pos_.y() + r * std::sin(map_angle));
         }
 
+        // ── Step 1.5: Inject virtual wall points ──
+        if (vw_enabled_) {
+            raw_obs.insert(raw_obs.end(), wall_points_.begin(), wall_points_.end());
+        }
+
         if (raw_obs.empty()) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
                 "No valid scan points");
             return;
         }
 
-        // 2. Downsample
+        // ── Step 2: Downsample ──
         auto obstacles = firi::voxel_filter(raw_obs, voxel_size_);
 
-        // 3. Build robot footprint seed
-        const double hl = robot_length_ / 2.0 + 0.025;  // add small safety margin to length
+        // ── Step 3: Build robot footprint seed ──
+        const double hl = robot_length_ / 2.0 + 0.025;
         const double hw = robot_width_ / 2.0 + 0.025;
         const double cos_yaw = std::cos(robot_yaw_);
         const double sin_yaw = std::sin(robot_yaw_);
@@ -212,7 +277,7 @@ private:
             body_center + R * Eigen::Vector2d(-hl,  hw)
         };
 
-        // 4. Add path-guided seed points
+        // ── Step 4: Add path-guided seed points ──
         std::string seed_source = "footprint";
         if (seed_use_path_) {
             auto path_seeds = get_path_seed_points(seed_source);
@@ -221,7 +286,7 @@ private:
             }
         }
 
-        // 5. Heading-aligned bounding box
+        // ── Step 5: Heading-aligned bounding box ──
         const Eigen::Vector2d fwd = R.col(0);
         const Eigen::Vector2d lft = R.col(1);
 
@@ -232,17 +297,19 @@ private:
             {-lft, -lft.dot(robot_pos_) + bbox_side_}
         };
 
-        // 6. Run FIRI
+        // ── Step 6: Run FIRI ──
         auto result = solver_.compute(
             obstacles, seed, bbox_planes, max_firi_iter_, convergence_rho_);
 
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-            "%zu rays -> %zu obs | %d iters | %zu planes | %.2f ms | seed: %s (%zu pts)",
-            raw_obs.size(), obstacles.size(),
+            "%zu scan + %zu wall -> %zu obs | %d iters | %zu planes | %.2f ms | seed: %s (%zu pts)",
+            raw_obs.size() - (vw_enabled_ ? wall_points_.size() : 0),
+            vw_enabled_ ? wall_points_.size() : 0,
+            obstacles.size(),
             result.iterations, result.planes.size(),
             result.solve_time_ms, seed_source.c_str(), seed.size());
 
-        // 7. Publish
+        // ── Step 7: Publish ──
         frame_id_ = "map";
         publish_polytope(result.planes);
         publish_visualization(result.planes);
@@ -250,7 +317,7 @@ private:
     }
 
     // ================================================================
-    // PATH-GUIDED SEED EXTRACTION (same as grid node)
+    // PATH-GUIDED SEED EXTRACTION
     // ================================================================
     std::vector<Eigen::Vector2d> get_path_seed_points(std::string& source)
     {
@@ -313,7 +380,7 @@ private:
     }
 
     // ================================================================
-    // PUBLISHERS (same as grid node)
+    // PUBLISHERS
     // ================================================================
     void publish_polytope(const std::vector<firi::HalfPlane>& planes)
     {
@@ -499,13 +566,22 @@ private:
     double seed_lookahead_;
     double seed_path_timeout_;
     bool seed_use_path_;
+
+    // Virtual walls
+    bool vw_enabled_;
+    double vw_x_min_;
+    double vw_x_max_;
+    double vw_y_min_;
+    double vw_y_max_;
+    double vw_spacing_;
+    std::vector<Eigen::Vector2d> wall_points_;
 };
 
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<FIRIScanNode>();
+    auto node = std::make_shared<FIRIScanExperimentNode>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

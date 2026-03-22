@@ -30,7 +30,7 @@ Topics:
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import Float64MultiArray, String
+from std_msgs.msg import Float64, Float64MultiArray, String
 from nav_msgs.msg import Path
 from firi_msgs.msg import Polytope2DStamped
 
@@ -64,6 +64,7 @@ class MPCCBFNode(Node):
         self.declare_parameter('gamma', 0.8)
         self.declare_parameter('max_approx', 5e-3)
         self.declare_parameter('max_halfplanes', 20)
+        self.declare_parameter('safe_marg', 0.03)
 
         # Cost weights
         self.declare_parameter('Q_x', 10.0)
@@ -95,6 +96,7 @@ class MPCCBFNode(Node):
         self.gamma = self.get_parameter('gamma').value
         self.max_approx = self.get_parameter('max_approx').value
         self.max_halfplanes = self.get_parameter('max_halfplanes').value
+        self.safe_marg = self.get_parameter('safe_marg').value
 
         Q_x = self.get_parameter('Q_x').value
         Q_y = self.get_parameter('Q_y').value
@@ -117,8 +119,6 @@ class MPCCBFNode(Node):
         # State dimensions
         self.nx = 3   # [x, y, theta]
         self.nu = 2   # [v, delta]
-        
-        self.safe_marg = 0.03
 
         # =================================================================
         # State variables
@@ -162,6 +162,7 @@ class MPCCBFNode(Node):
         self.traj_pub = self.create_publisher(Path, '/mpc/trajectory', 10)
         self.ref_pub = self.create_publisher(PoseStamped, '/mpc/reference', 10)
         self.status_pub = self.create_publisher(String, '/mpc/status', 10)
+        self.solve_time_pub = self.create_publisher(Float64, '/mpc_stats/solve_time_ms', 10)
 
         # =================================================================
         # Subscribers
@@ -349,9 +350,9 @@ class MPCCBFNode(Node):
                 for j in range(4):
                     for i in range(self.max_halfplanes):
                         dist_xk = self.p_b[i] - (self.p_A[i, 0] * verts_k[j, 0]
-                                         + self.p_A[i, 1] * verts_k[j, 1]) + self.safe_marg
+                                         + self.p_A[i, 1] * verts_k[j, 1]) - self.safe_marg
                         dist_xk1 = self.p_b[i] - (self.p_A[i, 0] * verts_k1[j, 0]
-                                         + self.p_A[i, 1] * verts_k1[j, 1]) + self.safe_marg
+                                         + self.p_A[i, 1] * verts_k1[j, 1]) - self.safe_marg
                         self.opti.subject_to(dist_xk1 >= self.gamma * dist_xk)
 
                 # # LSE-based CBF constraint
@@ -398,8 +399,8 @@ class MPCCBFNode(Node):
         # ── Solver options ──
         opts = {
             "fatrop.print_level": 0,
-            "print_time": 0,
-            "fatrop.max_iter": 100,
+            "print_time": 1,
+            "fatrop.max_iter": 200,
             "fatrop.tol": 1e-4,
             "fatrop.mu_init": 1e-1,
             "structure_detection": "auto",
@@ -638,6 +639,8 @@ class MPCCBFNode(Node):
         # ── Solve ──
         try:
             sol = self.opti.solve()
+            comp_time = sol.stats()['t_wall_total']
+            self.solve_time_pub.publish(Float64(data=comp_time * 1000.0))
 
             # Extract solution
             u_opt = np.zeros((self.nu, self.N))
@@ -661,11 +664,11 @@ class MPCCBFNode(Node):
             self.publish_reference()
             self.publish_status()
 
-            self.get_logger().info(
-                f"[{self._active_source}] v={u_opt[0, 0]:.3f} m/s, "
-                f"delta={np.degrees(u_opt[1, 0]):.1f}deg, "
-                f"hp={self.n_active}",
-                throttle_duration_sec=0.5)
+            # self.get_logger().info(
+            #     f"[{self._active_source}] v={u_opt[0, 0]:.3f} m/s, "
+            #     f"delta={np.degrees(u_opt[1, 0]):.1f}deg, "
+            #     f"hp={self.n_active}",
+            #     throttle_duration_sec=0.5)
 
         except RuntimeError as e:
             self.get_logger().warn(f"MPC solve failed: {e}",

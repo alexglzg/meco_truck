@@ -7,16 +7,15 @@ from launch_ros.actions import Node
 def generate_launch_description():
 
     # Locate the installed config file
-    # pkg_dir = get_package_share_directory('firi_ros')
-    # params_file = os.path.join(pkg_dir, 'config', 'firi_params.yaml')
-    # params_file = os.path.join(pkg_dir, 'config', 'firi_path_params.yaml')
+    pkg_dir = get_package_share_directory('firi_ros')
+    params_file = os.path.join(pkg_dir, 'config', 'firi_scan_params.yaml')
 
     firi_node = Node(
         package='firi_ros',
         executable='firi_scan_node',
         name='firi_scan_node',
         output='screen',
-        # parameters=[params_file]
+        parameters=[params_file]
     )
 
     pcl_node = Node(
@@ -24,7 +23,7 @@ def generate_launch_description():
         executable='pcl_filter_node',
         name='pcl_filter_node',
         output='screen',
-        # parameters=[params_file]
+        parameters=[params_file]
     )
     
 
@@ -37,7 +36,7 @@ def generate_launch_description():
         )
     
     return LaunchDescription([
-        # firi_node,
+        firi_node,
         pcl_node,
         tf_node
     ])

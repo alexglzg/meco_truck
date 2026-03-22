@@ -256,7 +256,7 @@ def save_map_and_yaml(
     print(f"Saved map configuration to {yaml_filename}")
 
 
-def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=0.05):
+def parking_one(parking_width_m=0.7, parking_center=4.75, parking_length_m=1.0, save=True, resolution=0.05):
     """Generates a free space with parking spot."""
     grid = generate_free_space_map(
         filename_prefix="custom_map",
@@ -267,6 +267,7 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
 
     parking_start = parking_center - (parking_width_m / 2)
     parking_end = parking_center + (parking_width_m / 2)
+    passage_end_x = 0.1 + parking_length_m  # x coordinate of the dividing wall
 
     # add long boundary line
     add_rectangular_obstacle(
@@ -279,13 +280,13 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     # add short boundary lines
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.1, 5.85),
+        bottom_left_m=(passage_end_x, 5.85),
         top_right_m=(2.85, 5.9),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.1, 0.1),
+        bottom_left_m=(passage_end_x, 0.1),
         top_right_m=(2.85, 0.15),
         resolution=resolution
     )
@@ -293,14 +294,14 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     # add lines to build a narrow passage
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.1, 6.0 - parking_start),
-        top_right_m=(1.15, 5.9),
+        bottom_left_m=(passage_end_x, 6.0 - parking_start),
+        top_right_m=(passage_end_x + 0.05, 5.9),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.1, 0.1),
-        top_right_m=(1.15, 6.0 - parking_end),
+        bottom_left_m=(passage_end_x, 0.1),
+        top_right_m=(passage_end_x + 0.05, 6.0 - parking_end),
         resolution=resolution
     )
 
@@ -308,13 +309,13 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(0.1, 6.0 - parking_start),
-        top_right_m=(1.1, 6.05 - parking_start),
+        top_right_m=(passage_end_x, 6.05 - parking_start),
         resolution=resolution
     )
     add_rectangular_obstacle(
         grid,
         bottom_left_m=(0.1, 5.95 - parking_end),
-        top_right_m=(1.1, 6.0 - parking_end),
+        top_right_m=(passage_end_x, 6.0 - parking_end),
         resolution=resolution
     )
     add_rectangular_obstacle(
@@ -332,20 +333,22 @@ def parking_one(parking_width_m=0.7, parking_center=4.75, save=True, resolution=
         return grid
 
 
-def parking_two(parking_width_m=0.7, parking_center=4.75, roundabout_radius_m=0.2, save=True, resolution=0.05):
+def parking_two(parking_width_m=0.7, parking_center=4.75, parking_length_m=1.0, roundabout_radius_m=0.2, save=True, resolution=0.05):
     '''Generates a parking scenario with two circular obstacles and a line between them (as in two roundabouts).'''
-    grid = parking_one(parking_width_m=parking_width_m, parking_center=parking_center, save=False, resolution=resolution)
+    grid = parking_one(parking_width_m=parking_width_m, parking_center=parking_center, parking_length_m=parking_length_m, save=False, resolution=resolution)
+
+    circle_x = round((0.1 + parking_length_m + 2.85) / 2 / resolution) * resolution  # snapped to grid cell
 
     # add circular obstacles
     add_circular_obstacle(
         grid,
-        center_m=(2.0, 4.45),
+        center_m=(circle_x, 4.45),
         radius_m=roundabout_radius_m,
         resolution=resolution
     )
     add_circular_obstacle(
         grid,
-        center_m=(2.0, 1.55),
+        center_m=(circle_x, 1.55),
         radius_m=roundabout_radius_m,
         resolution=resolution
     )
@@ -353,10 +356,10 @@ def parking_two(parking_width_m=0.7, parking_center=4.75, roundabout_radius_m=0.
     # add line between circular obstacles
     add_rectangular_obstacle(
         grid,
-        bottom_left_m=(1.95, 1.55),
-        top_right_m=(2.05, 4.45),
+        bottom_left_m=(circle_x - 0.05, 1.55),
+        top_right_m=(circle_x + 0.05, 4.45),
         resolution=resolution
-    )   
+    )
 
     # Save the map and YAML configuration
     if save:
@@ -691,16 +694,46 @@ def generate_irregular_figure_8(track_width_m=0.85, resolution=0.05):
     add_path_free_space(grid, waypoints, track_width_m, resolution)
     save_map_and_yaml(grid, "irregular_8", resolution)
 
+def generate_four_wall_map(wall_thickness_m=0.1, resolution=0.05):
+    """
+    Generates a simple map with four walls forming a rectangular room.
+    The walls are defined as rectangular obstacles, and the interior is free space.
+    """
+    map_width_m = 3.0
+    map_height_m = 6.0
+
+    grid = generate_free_space_map(
+        filename_prefix="four_wall",
+        map_width_m=map_width_m,
+        map_height_m=map_height_m,
+        resolution=resolution
+    )
+
+    # Add four walls (rectangular obstacles)
+    # Left wall
+    add_rectangular_obstacle(grid, (0.0, 0.0), (wall_thickness_m, map_height_m), resolution)
+    # Right wall
+    add_rectangular_obstacle(grid, (map_width_m - wall_thickness_m, 0.0), (map_width_m, map_height_m), resolution)
+    # Top wall
+    add_rectangular_obstacle(grid, (0.0, 0.0), (map_width_m, wall_thickness_m), resolution)
+    # Bottom wall
+    add_rectangular_obstacle(grid, (0.0, map_height_m - wall_thickness_m), (map_width_m, map_height_m), resolution)
+
+
+    save_map_and_yaml(grid, "four_wall", resolution)
+
+
 if __name__ == "__main__":
     resolution = 0.05
     # parking_one(parking_width_m=0.7, resolution=resolution)
-    parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution)
+    # parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution, parking_length_m=0.8)
     # intersection(road_width_m=0.8, resolution=resolution)
     # intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.6, resolution=resolution)
     # generate_racetrack(track_width_m=0.8, resolution=resolution)
     # generate_slalom(lane_width_m=1.0, resolution=resolution)
     # generate_figure_8(track_width_m=0.8, resolution=resolution)
-    # generate_grid_world(lane_width_m=0.7, resolution=resolution)
+    generate_grid_world(lane_width_m=0.8, resolution=resolution)
     # generate_serpentine(lane_width_m=0.9, resolution=resolution)
     # generate_mini_spa(track_width_m=0.9, resolution=resolution)
     # generate_irregular_figure_8(track_width_m=0.85, resolution=resolution)
+    # generate_four_wall_map(wall_thickness_m=0.1, resolution=resolution)
