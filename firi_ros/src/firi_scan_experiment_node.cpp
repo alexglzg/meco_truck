@@ -66,7 +66,7 @@ public:
         this->declare_parameter<int>("seed_n_samples", 4);
         this->declare_parameter<double>("seed_lookahead", 1.5);
         this->declare_parameter<double>("seed_path_timeout", 5.0);
-        this->declare_parameter<bool>("seed_use_path", true);
+        this->declare_parameter<bool>("seed_use_path", false);
 
         // Topics
         this->declare_parameter<std::string>("scan_topic", "/filtered_scan");
