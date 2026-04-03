@@ -26,7 +26,7 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('truck_bringup')
     sim_dir = get_package_share_directory('meco_truck_sim')
     firi_dir = get_package_share_directory('firi_ros')
-
+    mpc_dir = get_package_share_directory('mpc_cbf')
 
     # ── Launch arguments ──
     map_file_arg = DeclareLaunchArgument(
@@ -40,29 +40,20 @@ def generate_launch_description():
 
     nav2_params = os.path.join(
         bringup_dir, 'config', 'nav2_planner_params_lidar.yaml')
-
+    mpc_params = os.path.join(mpc_dir, 'config', 'mpc_cbf_params.yaml')
     firi_params = os.path.join(firi_dir, 'config', 'firi_scan_params.yaml')
 
 
     # ================================================================
-    # 1. MAP SERVER
+    # 1. MAP NODE
     # ================================================================
-    map_server_node = Node(
-        package='nav2_map_server',
-        executable='map_server',
-        name='map_server',
+    map_node = Node(
+        package='meco_truck_sim',
+        executable='live_gridmap_node',
+        name='live_gridmap_node',
         output='screen',
-        parameters=[{'yaml_filename': map_file_path}])
-
-    lifecycle_manager_node = Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_map',
-        output='screen',
-        parameters=[
-            {'use_sim_time': False},
-            {'autostart': True},
-            {'node_names': ['map_server']}])
+        parameters=[{'map_yaml_path': map_file_path}]
+    )
 
     # ================================================================
     # 2. PCL FILTER NODE
@@ -95,8 +86,10 @@ def generate_launch_description():
     
     firi_node = Node(
         package='firi_ros',
-        executable='firi_scan_node',
-        name='firi_scan_node',
+        # executable='firi_scan_node',
+        # name='firi_scan_node',
+        executable='firi_scan_experiment_node',
+        name='firi_scan_experiment_node',
         output='screen',
         parameters=[firi_params]
     )
@@ -139,15 +132,27 @@ def generate_launch_description():
         output='screen')
 
     # ================================================================
+    # 5. MPC-CBF NODE
+    # ================================================================
+    mpc_node = Node(
+        package='mpc_cbf',
+        executable='mpc_cbf_node',
+        name='mpc_cbf_node',
+        output='screen',
+        parameters=[mpc_params])
+
+    # ================================================================
     # LAUNCH
     # ================================================================
     return LaunchDescription([
         map_file_arg,
 
         # Map
-        map_server_node,
-        lifecycle_manager_node,
+        map_node,
 
+        # Control
+        mpc_node,
+        
         # Perception
         pcl_filter_node,
         firi_node,
