@@ -27,7 +27,7 @@ mpc_cbf_node:
     R_v: 0.5                    # velocity effort
     R_delta: 0.01               # steering effort
     R_smooth_v: 0.2            # velocity smoothing (penalize changes)
-    R_smooth_delta: 0.2        # steering smoothing
+    R_smooth_delta: 0.3        # steering smoothing
 
     # ── Path following ──
     lookahead_dist: 0.5          # m ahead on path

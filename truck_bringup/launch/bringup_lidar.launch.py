@@ -40,7 +40,7 @@ def generate_launch_description():
 
     nav2_params = os.path.join(
         bringup_dir, 'config', 'nav2_planner_params_lidar.yaml')
-    mpc_params = os.path.join(mpc_dir, 'config', 'mpc_cbf_params.yaml')
+    mpc_params = os.path.join(mpc_dir, 'config', 'mpc_cbf_params_scan.yaml')
     firi_params = os.path.join(firi_dir, 'config', 'firi_scan_params.yaml')
 
 
@@ -99,7 +99,7 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='tracker_to_robot',
             # arguments: x y z yaw pitch roll frame_id child_frame_id
-            arguments=['0.155', '0', '0.65', '0', '0', '0', 'base_link', 'os_sensor']
+            arguments=['0.155', '0', '0.25', '0', '0', '0', 'base_link', 'os_sensor']
         )
 
     # ================================================================

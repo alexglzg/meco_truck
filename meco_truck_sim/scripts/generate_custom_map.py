@@ -224,7 +224,7 @@ def save_map_and_yaml(
     grid,
     filename_prefix,
     resolution,
-    origin=(-1.0, -1.0, 0.0)
+    origin=(-0.7, -1.2, 0.0)
 ):
     """
     Saves the occupancy grid map as a PNG file and its configuration as a YAML file.
@@ -728,11 +728,11 @@ if __name__ == "__main__":
     # parking_one(parking_width_m=0.7, resolution=resolution)
     # parking_two(parking_width_m=0.7, roundabout_radius_m=0.2, resolution=resolution, parking_length_m=0.8)
     # intersection(road_width_m=0.8, resolution=resolution)
-    # intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.6, resolution=resolution)
+    intersection_roundabout(roundabout_outer_radius_m=1.0, roundabout_inner_radius_m=0.2, road_width_m=0.7, resolution=resolution)
     # generate_racetrack(track_width_m=0.8, resolution=resolution)
     # generate_slalom(lane_width_m=1.0, resolution=resolution)
     # generate_figure_8(track_width_m=0.8, resolution=resolution)
-    generate_grid_world(lane_width_m=0.8, resolution=resolution)
+    # generate_grid_world(lane_width_m=0.8, resolution=resolution)
     # generate_serpentine(lane_width_m=0.9, resolution=resolution)
     # generate_mini_spa(track_width_m=0.9, resolution=resolution)
     # generate_irregular_figure_8(track_width_m=0.85, resolution=resolution)

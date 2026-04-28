@@ -12,9 +12,8 @@ Launches:
   8. RViz2
 
 Usage:
-  ros2 launch truck_bringup bringup.launch.py
-  ros2 launch truck_bringup bringup.launch.py map_file:=intersection_roundabout.yaml
-  ros2 launch truck_bringup bringup.launch.py rviz:=false
+  ros2 launch truck_bringup bringup_map.launch.py
+  ros2 launch truck_bringup bringup_map.launch.py map_file:=intersection_roundabout.yaml
 """
 
 import os

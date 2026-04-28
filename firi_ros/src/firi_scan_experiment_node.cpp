@@ -75,8 +75,8 @@ public:
         // Virtual walls (lab arena boundaries in map frame)
         this->declare_parameter<bool>("virtual_walls.enabled", true);
         this->declare_parameter<double>("virtual_walls.x_min", -0.9);
-        this->declare_parameter<double>("virtual_walls.x_max", 1.9);
-        this->declare_parameter<double>("virtual_walls.y_min", -0.9);
+        this->declare_parameter<double>("virtual_walls.x_max", 2.65);
+        this->declare_parameter<double>("virtual_walls.y_min", -1.25);
         this->declare_parameter<double>("virtual_walls.y_max", 4.9);
         this->declare_parameter<double>("virtual_walls.spacing", 0.05);
 
@@ -257,8 +257,8 @@ private:
         auto obstacles = firi::voxel_filter(raw_obs, voxel_size_);
 
         // ── Step 3: Build robot footprint seed ──
-        const double hl = robot_length_ / 2.0 + 0.025;
-        const double hw = robot_width_ / 2.0 + 0.025;
+        const double hl = robot_length_ / 2.0 + 0.03;
+        const double hw = robot_width_ / 2.0 + 0.03;
         const double cos_yaw = std::cos(robot_yaw_);
         const double sin_yaw = std::sin(robot_yaw_);
 
